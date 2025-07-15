@@ -1,0 +1,2349 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>調理場専用シフト管理システム</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .scrollbar-thin::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // アイコンコンポーネント
+        const Plus = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        );
+
+        const Edit = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+        );
+
+        const Trash2 = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <polyline points="3,6 5,6 21,6"></polyline>
+                <path d="m19,6 0,14 c0,1 -1,2 -2,2 l -10,0 c-1,0 -2,-1 -2,-2 l 0,-14 m3,0 L8,5 c0,-1 1,-2 2,-2 l4,0 c1,0 2,1 2,2 l0,1"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+        );
+
+        const Save = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d="m19,21 -14,0 c-1,0 -2,-1 -2,-2 L3,5 c0,-1 1,-2 2,-2 l11,0 3,3 0,13 c0,1 -1,2 -2,2 z"></path>
+                <polyline points="17,21 17,13 7,13 7,21"></polyline>
+                <polyline points="7,3 7,8 15,8"></polyline>
+            </svg>
+        );
+
+        const X = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        );
+
+        const Calendar = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+        );
+
+        const Users = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="m22 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="m16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+        );
+
+        const Clock = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12,6 12,12 16,14"></polyline>
+            </svg>
+        );
+
+        const Move = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <polyline points="5,9 2,12 5,15"></polyline>
+                <polyline points="9,5 12,2 15,5"></polyline>
+                <polyline points="15,19 12,22 9,19"></polyline>
+                <polyline points="19,9 22,12 19,15"></polyline>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <line x1="12" y1="2" x2="12" y2="22"></line>
+            </svg>
+        );
+
+        // 印刷用HTML作成関数
+        const createPrintHTML = (employees, shifts, scheduleData, remarksData, currentYear, currentMonth) => {
+            // 月のカレンダー生成（関数内で定義）
+            const generateCalendarDays = (year, month) => {
+                const daysInMonth = new Date(year, month, 0).getDate();
+                return Array.from({ length: daysInMonth }, (_, i) => i + 1);
+            };
+            
+            const calendarDays = generateCalendarDays(currentYear, currentMonth);
+            
+            let html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${currentYear}年${currentMonth}月 調理場シフト表</title>
+    <style>
+        @media print {
+            body { margin: 0; padding: 20px; }
+            .no-print { display: none !important; }
+            .page-break { page-break-before: always; }
+            table { page-break-inside: avoid; }
+            /* 印刷時も色を保持 */
+            .weekend { background-color: #fff0f0 !important; }
+            .weekday { background-color: #f0fff0 !important; }
+            .cell-yellow { background-color: #fef3c7 !important; }
+            .cell-purple { background-color: #e9d5ff !important; }
+            .cell-green { background-color: #d1fae5 !important; }
+            /* 印刷時の色設定を強制 */
+            * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
+        }
+        
+        body {
+            font-family: 'MS Gothic', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: white;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        
+        .title {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        
+        .subtitle {
+            font-size: 18px;
+            color: #666;
+            margin: 5px 0 0 0;
+            font-weight: bold;
+        }
+        
+        .shift-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .shift-table th,
+        .shift-table td {
+            border: 2px solid #333;
+            padding: 12px 8px;
+            text-align: center;
+            vertical-align: middle;
+            font-weight: bold;
+        }
+        
+        .shift-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .employee-name {
+            font-weight: bold;
+            background-color: #e8f4fd;
+            min-width: 100px;
+            font-size: 18px;
+        }
+        
+        .employee-header {
+            background-color: #e8f4fd;
+            font-weight: bold;
+            font-size: 18px;
+            border: 2px solid #333;
+        }
+        
+        .date-header {
+            background-color: #f0f0f0;
+            font-size: 16px;
+            font-weight: bold;
+            border: 2px solid #333;
+        }
+        
+        .weekday-header {
+            background-color: #f8f8f8;
+            font-size: 14px;
+            font-weight: bold;
+            border: 2px solid #333;
+        }
+        
+        .weekend {
+            background-color: #fff0f0;
+        }
+        
+        .weekday {
+            background-color: #f0fff0;
+        }
+        
+        .shift-cell {
+            min-width: 80px;
+            height: 50px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .cell-yellow {
+            background-color: #fef3c7 !important;
+        }
+        
+        .cell-purple {
+            background-color: #e9d5ff !important;
+        }
+        
+        .cell-green {
+            background-color: #d1fae5 !important;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 16px;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+            font-weight: bold;
+        }
+        
+        .print-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .print-button:hover {
+            background-color: #0056b3;
+        }
+        
+        @media screen {
+            .print-button { display: block; }
+        }
+        
+        @media print {
+            .print-button { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <button class="print-button no-print" onclick="window.print()">印刷</button>
+    
+    <div class="header">
+        <h1 class="title">${currentYear}年${currentMonth}月 調理場シフト表</h1>
+        <p class="subtitle">調理場シフトデータ</p>
+    </div>
+    
+    <table class="shift-table">
+        <thead>
+            <tr>
+                <th class="employee-header">従業員</th>`;
+
+            // 日付ヘッダーを追加
+            calendarDays.forEach(day => {
+                const date = new Date(currentYear, currentMonth - 1, day);
+                const weekday = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+                const isWeekend = weekday === '土' || weekday === '日';
+                const cellClass = isWeekend ? 'weekend' : 'weekday';
+                
+                html += `
+                <th class="date-header">
+                    ${day}
+                </th>`;
+            });
+
+            html += `
+            </tr>
+            <tr>
+                <th class="employee-header">従業員</th>`;
+
+            // 曜日ヘッダーを追加
+            calendarDays.forEach(day => {
+                const date = new Date(currentYear, currentMonth - 1, day);
+                const weekday = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+                const isWeekend = weekday === '土' || weekday === '日';
+                const cellClass = isWeekend ? 'weekend' : 'weekday';
+                const weekendStyle = isWeekend ? 'background-color: #fff0f0;' : 'background-color: #f0fff0;';
+                
+                html += `
+                <th class="weekday-header" style="${weekendStyle}">
+                    ${weekday}
+                </th>`;
+            });
+
+            html += `
+            </tr>
+        </thead>
+        <tbody>`;
+
+            // 従業員データを追加
+            employees.filter(emp => emp.isActive).forEach(employee => {
+                html += `
+            <tr>
+                <td class="employee-name">${employee.name}</td>`;
+                
+                calendarDays.forEach(day => {
+                    const key = `${employee.id}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const shiftId = scheduleData[key];
+                    let shiftName = '';
+                    
+                    if (shiftId) {
+                        if (shiftId === '休') {
+                            shiftName = '休';
+                        } else {
+                            const shift = shifts.find(s => s.id === shiftId);
+                            shiftName = shift ? shift.name : '';
+                        }
+                    }
+                    
+                    const date = new Date(currentYear, currentMonth - 1, day);
+                    const weekday = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+                    const isWeekend = weekday === '土' || weekday === '日';
+                    const cellClass = isWeekend ? 'weekend' : 'weekday';
+                    
+                    // セルの色を取得（備考データから）
+                    let colorClass = '';
+                    const remarks = remarksData[key] || '';
+                    if (remarks.includes('[yellow]')) colorClass = 'cell-yellow';
+                    else if (remarks.includes('[purple]')) colorClass = 'cell-purple';
+                    else if (remarks.includes('[green]')) colorClass = 'cell-green';
+                    
+                    // 「休」の場合は赤字スタイルを適用
+                    const isRest = shiftName === '休';
+                    const restStyle = isRest ? 'color: red; font-weight: bold;' : '';
+                    
+                    // 背景色を直接スタイルで指定
+                    let backgroundColor = '';
+                    if (colorClass === 'cell-yellow') backgroundColor = 'background-color: #fef3c7;';
+                    else if (colorClass === 'cell-purple') backgroundColor = 'background-color: #e9d5ff;';
+                    else if (colorClass === 'cell-green') backgroundColor = 'background-color: #d1fae5;';
+                    else if (isWeekend) backgroundColor = 'background-color: #fff0f0;';
+                    else backgroundColor = 'background-color: #f0fff0;';
+                    
+                    html += `
+                <td class="shift-cell" style="${backgroundColor} ${restStyle}">${shiftName}</td>`;
+                });
+
+                html += `
+            </tr>`;
+            });
+
+            html += `
+        </tbody>
+    </table>
+    
+    <div class="footer">
+        <p>印刷日時: ${new Date().toLocaleString('ja-JP')}</p>
+        <p>調理場専用シフト管理システム</p>
+    </div>
+</body>
+</html>`;
+
+            return html;
+        };
+
+        const CookApp = () => {
+            // サンプル調理師データ
+            const sampleEmployees = [
+                { id: '1', name: '佐藤太郎', employeeId: '001', isActive: true },
+                { id: '2', name: '鈴木花子', employeeId: '002', isActive: true },
+                { id: '3', name: '高橋健', employeeId: '003', isActive: true },
+                { id: '4', name: '伊藤美咲', employeeId: '004', isActive: true },
+                { id: '5', name: '渡辺直樹', employeeId: '005', isActive: true }
+            ];
+
+            // 調理場用シフト定義（調理師シフト表.xlsxに基づく）
+            const cookShifts = [
+                { id: '休', name: '休', regularHours: 0, overtimeHours: 0, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: 'a', name: 'a', regularHours: 4.25, overtimeHours: 2, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: 'b', name: 'b', regularHours: 3.75, overtimeHours: 1.5, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: 'c', name: 'c', regularHours: 5.5, overtimeHours: 0, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: 'd', name: 'd', regularHours: 5.5, overtimeHours: 0, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: 'e', name: 'e', regularHours: 5.5, overtimeHours: 2, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: 'f', name: 'f', regularHours: 1.5, overtimeHours: 4, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: '早', name: '早', regularHours: 4.25, overtimeHours: 2, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: '朝', name: '朝', regularHours: 5.5, overtimeHours: 0, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: '配', name: '配', regularHours: 5.5, overtimeHours: 0, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: '遅', name: '遅', regularHours: 5.5, overtimeHours: 2, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: '夜', name: '夜', regularHours: 1.5, overtimeHours: 4, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: 'af', name: 'af', regularHours: 5.75, overtimeHours: 6, showInStats: true, showInDailyStats: false, decomposeTo: ['a', 'f'] },
+                { id: 'cf', name: 'cf', regularHours: 7, overtimeHours: 4, showInStats: true, showInDailyStats: false, decomposeTo: ['c', 'f'] },
+                { id: '早遅', name: '早遅', regularHours: 5.5, overtimeHours: 4.5, showInStats: true, showInDailyStats: false, decomposeTo: ['早', '遅'] },
+                { id: '早夜', name: '早夜', regularHours: 5.25, overtimeHours: 6, showInStats: true, showInDailyStats: false, decomposeTo: ['早', '夜'] },
+                { id: '遅夜', name: '遅夜', regularHours: 5, overtimeHours: 4, showInStats: true, showInDailyStats: false, decomposeTo: ['遅', '夜'] },
+                { id: 'b夜', name: 'b夜', regularHours: 5.25, overtimeHours: 5.5, showInStats: true, showInDailyStats: false, decomposeTo: ['b', '夜'] },
+                { id: '洗夜', name: '洗夜', regularHours: 5.25, overtimeHours: 5.5, showInStats: true, showInDailyStats: false, decomposeTo: ['洗', '夜'] },
+                { id: '洗', name: '洗', regularHours: 3.75, overtimeHours: 1.5, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: '洗f', name: '洗f', regularHours: 5.25, overtimeHours: 5.5, showInStats: true, showInDailyStats: false, decomposeTo: ['洗', 'f'] },
+                { id: '切', name: '切', regularHours: 5.5, overtimeHours: 0, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: 'bf', name: 'bf', regularHours: 5.25, overtimeHours: 5.5, showInStats: true, showInDailyStats: false, decomposeTo: ['b', 'f'] },
+                { id: 'a夜', name: 'a夜', regularHours: 5.75, overtimeHours: 6, showInStats: true, showInDailyStats: false, decomposeTo: ['a', '夜'] },
+                { id: '早f', name: '早f', regularHours: 5.75, overtimeHours: 6, showInStats: true, showInDailyStats: false, decomposeTo: ['早', 'f'] },
+                { id: 'b短', name: 'b短', regularHours: 2.25, overtimeHours: 2.5, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: 'd短', name: 'd短', regularHours: 5.25, overtimeHours: 0, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: 'e短', name: 'e短', regularHours: 5.75, overtimeHours: 1.5, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: 'f短', name: 'f短', regularHours: 1.5, overtimeHours: 3.5, showInStats: true, showInDailyStats: true, decomposeTo: [] },
+                { id: 'af短', name: 'af短', regularHours: 3.75, overtimeHours: 6, showInStats: true, showInDailyStats: false, decomposeTo: ['a', 'f'] },
+                { id: 'bf短', name: 'bf短', regularHours: 3.75, overtimeHours: 6, showInStats: true, showInDailyStats: false, decomposeTo: ['b', 'f'] },
+                { id: 'cf短', name: 'cf短', regularHours: 7, overtimeHours: 3.5, showInStats: true, showInDailyStats: false, decomposeTo: ['c', 'f'] },
+                { id: 'b夜短', name: 'b夜短', regularHours: 3.25, overtimeHours: 6.5, showInStats: true, showInDailyStats: false, decomposeTo: ['b', '夜'] }
+            ];
+
+            // ファイルベースのデータ保存・読み込み関数
+            const saveToFile = async (filename, data) => {
+                try {
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    console.log(`データを${filename}に保存しました`);
+                } catch (error) {
+                    console.error(`ファイル保存エラー:`, error);
+                    alert(`ファイル保存に失敗しました: ${error.message}`);
+                }
+            };
+
+            const loadFromFile = async (filename, defaultValue) => {
+                try {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.json';
+                    input.style.display = 'none';
+                    
+                    return new Promise((resolve) => {
+                        input.onchange = (e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (e) => {
+                                    try {
+                                        const data = JSON.parse(e.target.result);
+                                        resolve(data);
+                                    } catch (error) {
+                                        console.error(`ファイル読み込みエラー:`, error);
+                                        alert(`ファイル読み込みに失敗しました: ${error.message}`);
+                                        resolve(defaultValue);
+                                    }
+                                };
+                                reader.readAsText(file);
+                            } else {
+                                resolve(defaultValue);
+                            }
+                        };
+                        input.click();
+                    });
+                } catch (error) {
+                    console.error(`ファイル読み込みエラー:`, error);
+                    return defaultValue;
+                }
+            };
+
+            // ローカルストレージからデータを読み込む関数（フォールバック用）
+            const loadFromStorage = (key, defaultValue) => {
+                try {
+                    const stored = localStorage.getItem(key);
+                    return stored ? JSON.parse(stored) : defaultValue;
+                } catch (error) {
+                    console.error(`Error loading ${key}:`, error);
+                    return defaultValue;
+                }
+            };
+
+            // ローカルストレージにデータを保存する関数（フォールバック用）
+            const saveToStorage = (key, data) => {
+                try {
+                    localStorage.setItem(key, JSON.stringify(data));
+                } catch (error) {
+                    console.error(`Error saving ${key}:`, error);
+                }
+            };
+
+            // 状態管理
+            const [employees, setEmployees] = useState(() => loadFromStorage('cookEmployees', sampleEmployees));
+            const [shifts, setShifts] = useState(() => loadFromStorage('cookShifts', cookShifts));
+            const [currentView, setCurrentView] = useState('schedule');
+            const [currentMonth, setCurrentMonth] = useState(7);
+            const [currentYear, setCurrentYear] = useState(2025);
+            const [scheduleData, setScheduleData] = useState(() => loadFromStorage('cookScheduleData', {}));
+            const [remarksData, setRemarksData] = useState(() => loadFromStorage('cookRemarksData', {}));
+            const [remarkCategories, setRemarkCategories] = useState(() => loadFromStorage('cookRemarkCategories', ['休み希望', '会議', '回カ']));
+            const [holidays, setHolidays] = useState(() => loadFromStorage('cookHolidays', [
+                '2025-07-15',
+                '2025-07-21',
+            ]));
+
+            // フォーム状態
+            const [showEmployeeForm, setShowEmployeeForm] = useState(false);
+            const [editingEmployee, setEditingEmployee] = useState(null);
+            const [employeeForm, setEmployeeForm] = useState({
+                id: '',
+                name: '',
+                employeeId: '',
+                isActive: true
+            });
+
+            const [showShiftForm, setShowShiftForm] = useState(false);
+            const [editingShift, setEditingShift] = useState(null);
+            const [shiftForm, setShiftForm] = useState({
+                id: '',
+                name: '',
+                regularHours: 0,
+                overtimeHours: 0,
+                showInStats: true,
+                showInDailyStats: true,
+                decomposeTo: []
+            });
+
+            const [showHolidayForm, setShowHolidayForm] = useState(false);
+            const [newHoliday, setNewHoliday] = useState('');
+
+            // 統計ウィンドウ用の状態
+            const [showStatsWindow, setShowStatsWindow] = useState(false);
+            const [statsWindowPosition, setStatsWindowPosition] = useState({ x: 100, y: 100 });
+            const [isDraggingStatsWindow, setIsDraggingStatsWindow] = useState(false);
+            const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+            // ドラッグ&ドロップ用の状態
+            const [draggedShift, setDraggedShift] = useState(null);
+            const [dragOverShift, setDragOverShift] = useState(null);
+            const [draggedEmployee, setDraggedEmployee] = useState(null);
+            const [dragOverEmployee, setDragOverEmployee] = useState(null);
+
+            // 月のカレンダー生成
+            const generateCalendarDays = (year, month) => {
+                const daysInMonth = new Date(year, month, 0).getDate();
+                return Array.from({ length: daysInMonth }, (_, i) => i + 1);
+            };
+
+            const calendarDays = generateCalendarDays(currentYear, currentMonth);
+
+            // 日付の色分け
+            const getDayColor = (year, month, day) => {
+                const date = new Date(year, month - 1, day);
+                const ymd = `${date.getFullYear()}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                if (holidays.includes(ymd) || date.getDay() === 0) return 'text-red-600';
+                if (date.getDay() === 6) return 'text-blue-600';
+                return '';
+            };
+
+            // データ保存
+            useEffect(() => {
+                saveToStorage('cookEmployees', employees);
+            }, [employees]);
+
+            useEffect(() => {
+                saveToStorage('cookShifts', shifts);
+            }, [shifts]);
+
+            useEffect(() => {
+                saveToStorage('cookScheduleData', scheduleData);
+            }, [scheduleData]);
+
+            useEffect(() => {
+                saveToStorage('cookRemarksData', remarksData);
+            }, [remarksData]);
+
+            useEffect(() => {
+                saveToStorage('cookRemarkCategories', remarkCategories);
+            }, [remarkCategories]);
+
+            useEffect(() => {
+                saveToStorage('cookHolidays', holidays);
+            }, [holidays]);
+
+            // 従業員管理
+            const handleSaveEmployee = () => {
+                if (!employeeForm.name.trim()) return;
+
+                if (editingEmployee) {
+                    setEmployees(employees.map(emp => 
+                        emp.id === editingEmployee.id ? { ...employeeForm } : emp
+                    ));
+                } else {
+                    const newId = Date.now().toString();
+                    setEmployees([...employees, { ...employeeForm, id: newId }]);
+                }
+
+                setEmployeeForm({ id: '', name: '', employeeId: '', isActive: true });
+                setShowEmployeeForm(false);
+                setEditingEmployee(null);
+            };
+
+            const handleEditEmployee = (employee) => {
+                setEmployeeForm(employee);
+                setEditingEmployee(employee);
+                setShowEmployeeForm(true);
+            };
+
+            const handleDeleteEmployee = (id) => {
+                setEmployees(employees.filter(emp => emp.id !== id));
+            };
+
+            // シフト管理
+            const handleSaveShift = () => {
+                if (!shiftForm.name.trim()) return;
+
+                if (editingShift) {
+                    setShifts(shifts.map(shift => 
+                        shift.id === editingShift.id ? { ...shiftForm } : shift
+                    ));
+                } else {
+                    const newId = Date.now().toString();
+                    setShifts([...shifts, { ...shiftForm, id: newId }]);
+                }
+
+                                                            setShiftForm({ id: '', name: '', regularHours: 5.5, overtimeHours: 0, showInStats: true, decomposeTo: [] });
+                setShowShiftForm(false);
+                setEditingShift(null);
+            };
+
+            const handleEditShift = (shift) => {
+                setShiftForm(shift);
+                setEditingShift(shift);
+                setShowShiftForm(true);
+            };
+
+            const handleDeleteShift = (id) => {
+                setShifts(shifts.filter(shift => shift.id !== id));
+            };
+
+            // スケジュール管理
+            const handleScheduleChange = (employeeId, day, shiftId) => {
+                const key = `${employeeId}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                setScheduleData(prev => ({
+                    ...prev,
+                    [key]: shiftId === prev[key] ? '' : shiftId
+                }));
+            };
+
+            // 備考管理
+            const handleRemarksChange = (employeeId, day, remarks) => {
+                const key = `${employeeId}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                setRemarksData(prev => ({
+                    ...prev,
+                    [key]: remarks
+                }));
+            };
+
+            // セル色管理
+            const handleCellColorChange = (employeeId, day, color) => {
+                const key = `${employeeId}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const currentRemarks = remarksData[key] || '';
+                const currentColors = currentRemarks.match(/\[(yellow|purple|green)\]/g) || [];
+                
+                let newRemarks = currentRemarks;
+                if (currentColors.includes(`[${color}]`)) {
+                    // 色を削除
+                    newRemarks = currentRemarks.replace(`[${color}]`, '').trim();
+                } else {
+                    // 色を追加
+                    newRemarks = (currentRemarks + ` [${color}]`).trim();
+                }
+                
+                setRemarksData(prev => ({
+                    ...prev,
+                    [key]: newRemarks
+                }));
+            };
+
+            // セルの色を取得
+            const getCellColor = (employeeId, day) => {
+                const key = `${employeeId}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const remarks = remarksData[key] || '';
+                if (remarks.includes('[yellow]')) return 'bg-yellow-200';
+                if (remarks.includes('[purple]')) return 'bg-purple-200';
+                if (remarks.includes('[green]')) return 'bg-green-200';
+                return '';
+            };
+
+            // 備考カテゴリー管理
+            const [showRemarkCategoryForm, setShowRemarkCategoryForm] = useState(false);
+            const [editingRemarkCategory, setEditingRemarkCategory] = useState(null);
+            const [remarkCategoryForm, setRemarkCategoryForm] = useState('');
+
+            const handleSaveRemarkCategory = () => {
+                if (!remarkCategoryForm.trim()) return;
+
+                if (editingRemarkCategory !== null) {
+                    const newCategories = [...remarkCategories];
+                    newCategories[editingRemarkCategory] = remarkCategoryForm.trim();
+                    setRemarkCategories(newCategories);
+                } else {
+                    if (!remarkCategories.includes(remarkCategoryForm.trim())) {
+                        setRemarkCategories([...remarkCategories, remarkCategoryForm.trim()]);
+                    }
+                }
+
+                setRemarkCategoryForm('');
+                setShowRemarkCategoryForm(false);
+                setEditingRemarkCategory(null);
+            };
+
+            const handleEditRemarkCategory = (index) => {
+                setRemarkCategoryForm(remarkCategories[index]);
+                setEditingRemarkCategory(index);
+                setShowRemarkCategoryForm(true);
+            };
+
+            const handleDeleteRemarkCategory = (index) => {
+                const newCategories = remarkCategories.filter((_, i) => i !== index);
+                setRemarkCategories(newCategories);
+            };
+
+            // 勤務統計計算
+            const calculateStats = React.useMemo(() => {
+                const stats = {};
+                employees.filter(emp => emp.isActive).forEach(employee => {
+                    let workDays = 0;
+                    let restDays = 0;
+                    let weekdayRegularHours = 0;
+                    let weekdayOvertimeHours = 0;
+                    let holidayRegularHours = 0;
+                    let holidayOvertimeHours = 0;
+
+                    calendarDays.forEach(day => {
+                        const key = `${employee.id}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                        const shiftId = scheduleData[key];
+                        
+                        // 日付が休日かどうかを判定
+                        const date = new Date(currentYear, currentMonth - 1, day);
+                        const ymd = `${date.getFullYear()}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                        const isHoliday = holidays.includes(ymd) || date.getDay() === 0; // 日曜日または祝日
+                        
+                        if (shiftId && shiftId !== '休') {
+                            workDays++;
+                            const shift = shifts.find(s => s.id === shiftId);
+                            if (shift) {
+                                if (isHoliday) {
+                                    holidayRegularHours += shift.regularHours || 0;
+                                    holidayOvertimeHours += shift.overtimeHours || 0;
+                                } else {
+                                    weekdayRegularHours += shift.regularHours || 0;
+                                    weekdayOvertimeHours += shift.overtimeHours || 0;
+                                }
+                            }
+                        } else if (shiftId === '休') {
+                            restDays++;
+                        } else {
+                            restDays++;
+                        }
+                    });
+
+                    stats[employee.id] = { 
+                        workDays, 
+                        restDays, 
+                        weekdayRegularHours, 
+                        weekdayOvertimeHours,
+                        holidayRegularHours,
+                        holidayOvertimeHours
+                    };
+                });
+                return stats;
+            }, [employees, calendarDays, scheduleData, shifts, holidays, currentYear, currentMonth]);
+
+            // スクロール同期
+            useEffect(() => {
+                const headerScroll = document.getElementById('daily-stats-header-scroll');
+                const bodyScroll = document.getElementById('daily-stats-body-scroll');
+                
+                if (headerScroll && bodyScroll) {
+                    const syncScroll = (source, target) => {
+                        target.scrollLeft = source.scrollLeft;
+                    };
+                    
+                    headerScroll.addEventListener('scroll', () => syncScroll(headerScroll, bodyScroll));
+                    bodyScroll.addEventListener('scroll', () => syncScroll(bodyScroll, headerScroll));
+                    
+                    return () => {
+                        headerScroll.removeEventListener('scroll', () => syncScroll(headerScroll, bodyScroll));
+                        bodyScroll.removeEventListener('scroll', () => syncScroll(bodyScroll, headerScroll));
+                    };
+                }
+            }, [currentView]);
+
+            // シフト作成画面のスクロール同期
+            useEffect(() => {
+                const scheduleHeaderScroll = document.getElementById('schedule-header-scroll');
+                const scheduleBodyScroll = document.getElementById('schedule-body-scroll');
+                const remarksHeaderScroll = document.getElementById('cook-remarks-header-scroll');
+                const remarksBodyScroll = document.getElementById('cook-remarks-body-scroll');
+                
+                if (scheduleHeaderScroll && scheduleBodyScroll) {
+                    const syncScroll = (source, target) => {
+                        target.scrollLeft = source.scrollLeft;
+                    };
+                    
+                    scheduleHeaderScroll.addEventListener('scroll', () => syncScroll(scheduleHeaderScroll, scheduleBodyScroll));
+                    scheduleBodyScroll.addEventListener('scroll', () => syncScroll(scheduleBodyScroll, scheduleHeaderScroll));
+                    
+                    return () => {
+                        scheduleHeaderScroll.removeEventListener('scroll', () => syncScroll(scheduleHeaderScroll, scheduleBodyScroll));
+                        scheduleBodyScroll.removeEventListener('scroll', () => syncScroll(scheduleBodyScroll, scheduleHeaderScroll));
+                    };
+                }
+                
+                if (remarksHeaderScroll && remarksBodyScroll) {
+                    const syncRemarksScroll = (source, target) => {
+                        target.scrollLeft = source.scrollLeft;
+                    };
+                    
+                    remarksHeaderScroll.addEventListener('scroll', () => syncRemarksScroll(remarksHeaderScroll, remarksBodyScroll));
+                    remarksBodyScroll.addEventListener('scroll', () => syncRemarksScroll(remarksBodyScroll, remarksHeaderScroll));
+                    
+                    return () => {
+                        remarksHeaderScroll.removeEventListener('scroll', () => syncRemarksScroll(remarksHeaderScroll, remarksBodyScroll));
+                        remarksBodyScroll.removeEventListener('scroll', () => syncRemarksScroll(remarksBodyScroll, remarksHeaderScroll));
+                    };
+                }
+            }, [currentView]);
+
+            // ポップアップ統計ウィンドウのスクロール同期
+            useEffect(() => {
+                const popupHeaderScroll = document.getElementById('popup-daily-stats-header-scroll');
+                const popupBodyScroll = document.getElementById('popup-daily-stats-body-scroll');
+                
+                if (popupHeaderScroll && popupBodyScroll) {
+                    const syncScroll = (source, target) => {
+                        target.scrollLeft = source.scrollLeft;
+                    };
+                    
+                    popupHeaderScroll.addEventListener('scroll', () => syncScroll(popupHeaderScroll, popupBodyScroll));
+                    popupBodyScroll.addEventListener('scroll', () => syncScroll(popupBodyScroll, popupHeaderScroll));
+                    
+                    return () => {
+                        popupHeaderScroll.removeEventListener('scroll', () => syncScroll(popupHeaderScroll, popupBodyScroll));
+                        popupBodyScroll.removeEventListener('scroll', () => syncScroll(popupBodyScroll, popupHeaderScroll));
+                    };
+                }
+            }, [showStatsWindow]);
+
+            // 日別統計計算
+            const calculateDailyStats = React.useMemo(() => {
+                const dailyStats = {};
+                
+                calendarDays.forEach(day => {
+                    const dayStats = {};
+                    const visibleShifts = shifts.filter(shift => shift.showInDailyStats);
+                    
+                    // 各シフトの人数をカウント
+                    visibleShifts.forEach(shift => {
+                        dayStats[shift.id] = 0;
+                    });
+                    
+                    // 各従業員のシフトをチェック
+                    employees.filter(emp => emp.isActive).forEach(employee => {
+                        const key = `${employee.id}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                        const shiftId = scheduleData[key];
+                        
+                        if (shiftId) {
+                            const shift = shifts.find(s => s.id === shiftId);
+                            if (shift) {
+                                if (shift.showInDailyStats) {
+                                    // 直接表示されるシフト
+                                    if (dayStats.hasOwnProperty(shiftId)) {
+                                        dayStats[shiftId]++;
+                                    }
+                                } else if (shift.decomposeTo && shift.decomposeTo.length > 0) {
+                                    // 分解されるシフト
+                                    shift.decomposeTo.forEach(decomposeId => {
+                                        if (dayStats.hasOwnProperty(decomposeId)) {
+                                            dayStats[decomposeId]++;
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    });
+                    
+                    dailyStats[day] = dayStats;
+                });
+                
+                return dailyStats;
+            }, [employees, calendarDays, scheduleData, shifts]);
+
+            // 休日管理
+            const handleAddHoliday = (e) => {
+                e.preventDefault();
+                if (newHoliday && !holidays.includes(newHoliday)) {
+                    setHolidays([...holidays, newHoliday]);
+                    setNewHoliday('');
+                    setShowHolidayForm(false);
+                }
+            };
+
+            const handleDeleteHoliday = (date) => {
+                setHolidays(holidays.filter(h => h !== date));
+            };
+
+            // 統計ウィンドウのドラッグ機能
+            const handleStatsWindowMouseDown = (e) => {
+                setIsDraggingStatsWindow(true);
+                const rect = e.currentTarget.getBoundingClientRect();
+                setDragOffset({
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                });
+            };
+
+            const handleStatsWindowMouseMove = (e) => {
+                if (isDraggingStatsWindow) {
+                    setStatsWindowPosition({
+                        x: e.clientX - dragOffset.x,
+                        y: e.clientY - dragOffset.y
+                    });
+                }
+            };
+
+            const handleStatsWindowMouseUp = () => {
+                setIsDraggingStatsWindow(false);
+            };
+
+
+
+            // マウスイベントのグローバルリスナー
+            useEffect(() => {
+                if (isDraggingStatsWindow) {
+                    document.addEventListener('mousemove', handleStatsWindowMouseMove);
+                    document.addEventListener('mouseup', handleStatsWindowMouseUp);
+                    
+                    return () => {
+                        document.removeEventListener('mousemove', handleStatsWindowMouseMove);
+                        document.removeEventListener('mouseup', handleStatsWindowMouseUp);
+                    };
+                }
+            }, [isDraggingStatsWindow, dragOffset]);
+
+
+
+            // ドラッグ&ドロップ機能
+            const handleDragStart = (e, shift) => {
+                setDraggedShift(shift);
+                e.dataTransfer.effectAllowed = 'move';
+            };
+
+            const handleDragOver = (e, shift) => {
+                e.preventDefault();
+                if (draggedShift && draggedShift.id !== shift.id) {
+                    setDragOverShift(shift);
+                }
+            };
+
+            const handleDragLeave = () => {
+                setDragOverShift(null);
+            };
+
+            const handleDrop = (e, targetShift) => {
+                e.preventDefault();
+                if (draggedShift && draggedShift.id !== targetShift.id) {
+                    const draggedIndex = shifts.findIndex(s => s.id === draggedShift.id);
+                    const targetIndex = shifts.findIndex(s => s.id === targetShift.id);
+                    
+                    const newShifts = [...shifts];
+                    const [movedShift] = newShifts.splice(draggedIndex, 1);
+                    newShifts.splice(targetIndex, 0, movedShift);
+                    
+                    setShifts(newShifts);
+                }
+                setDraggedShift(null);
+                setDragOverShift(null);
+            };
+
+            // 従業員ドラッグ&ドロップ機能
+            const handleEmployeeDragStart = (e, employee) => {
+                setDraggedEmployee(employee);
+                e.dataTransfer.effectAllowed = 'move';
+            };
+
+            const handleEmployeeDragOver = (e, employee) => {
+                e.preventDefault();
+                if (draggedEmployee && draggedEmployee.id !== employee.id) {
+                    setDragOverEmployee(employee);
+                }
+            };
+
+            const handleEmployeeDragLeave = () => {
+                setDragOverEmployee(null);
+            };
+
+            const handleEmployeeDrop = (e, targetEmployee) => {
+                e.preventDefault();
+                if (draggedEmployee && draggedEmployee.id !== targetEmployee.id) {
+                    const draggedIndex = employees.findIndex(emp => emp.id === draggedEmployee.id);
+                    const targetIndex = employees.findIndex(emp => emp.id === targetEmployee.id);
+                    
+                    const newEmployees = [...employees];
+                    const [movedEmployee] = newEmployees.splice(draggedIndex, 1);
+                    newEmployees.splice(targetIndex, 0, movedEmployee);
+                    
+                    setEmployees(newEmployees);
+                }
+                setDraggedEmployee(null);
+                setDragOverEmployee(null);
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {/* ヘッダー */}
+                    <div className="bg-white shadow-sm border-b">
+                        <div className="max-w-7xl mx-auto px-4 py-1">
+                        </div>
+                    </div>
+
+
+
+                    {/* サブナビゲーション */}
+                    <div className="max-w-7xl mx-auto px-4 mb-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setCurrentView('schedule')}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                                        currentView === 'schedule' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-600 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <Calendar size={20} />
+                                    シフト作成
+                                </button>
+                                <button
+                                    onClick={() => setCurrentView('remarks')}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                                        currentView === 'remarks' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-600 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <Edit size={20} />
+                                    備考入力
+                                </button>
+                                <button
+                                    onClick={() => setCurrentView('employees')}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                                        currentView === 'employees' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-600 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <Users size={20} />
+                                    従業員管理
+                                </button>
+                                <button
+                                    onClick={() => setCurrentView('shifts')}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                                        currentView === 'shifts' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-600 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <Clock size={20} />
+                                    シフト管理
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <select 
+                                    value={currentMonth} 
+                                    onChange={(e) => setCurrentMonth(parseInt(e.target.value))}
+                                    className="border rounded px-3 py-2"
+                                >
+                                    {Array.from({length: 12}, (_, i) => (
+                                        <option key={i + 1} value={i + 1}>{i + 1}月</option>
+                                    ))}
+                                </select>
+                                <select 
+                                    value={currentYear} 
+                                    onChange={(e) => setCurrentYear(parseInt(e.target.value))}
+                                    className="border rounded px-3 py-2"
+                                >
+                                    <option value={2024}>2024年</option>
+                                    <option value={2025}>2025年</option>
+                                    <option value={2026}>2026年</option>
+                                    <option value={2027}>2027年</option>
+                                    <option value={2028}>2028年</option>
+                                    <option value={2029}>2029年</option>
+                                    <option value={2030}>2030年</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto px-4">
+                        {/* シフト作成画面 */}
+                        {currentView === 'schedule' && (
+                            <div className="bg-white rounded-lg shadow">
+                                <div className="p-6 border-b">
+                                    <div className="flex items-center justify-between">
+                                        <h2 className="text-xl font-semibold">
+                                            調理師シフト作成 ({currentYear}年{currentMonth}月)
+                                        </h2>
+                                        <div className="flex gap-1">
+                                            <button
+                                                onClick={async () => {
+                                                    const data = { scheduleData, lastUpdated: new Date().toISOString() };
+                                                    await saveToFile(`cook_schedule_${currentYear}_${String(currentMonth).padStart(2, '0')}.json`, data);
+                                                    alert('シフト作成データを保存しました！');
+                                                }}
+                                                className="bg-green-600 text-white px-2 py-1 rounded text-xs"
+                                                title="シフト作成データを保存"
+                                            >
+                                                保存
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    const data = await loadFromFile(`cook_schedule_${currentYear}_${String(currentMonth).padStart(2, '0')}.json`, null);
+                                                    if (data && data.scheduleData) {
+                                                        setScheduleData(data.scheduleData);
+                                                        alert('シフト作成データを読み込みました！');
+                                                    }
+                                                }}
+                                                className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
+                                                title="シフト作成データを読み込み"
+                                            >
+                                                読み込み
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (confirm('シフト作成データをリセットしますか？')) {
+                                                        setScheduleData({});
+                                                        alert('シフト作成データをリセットしました！');
+                                                    }
+                                                }}
+                                                className="bg-red-500 text-white px-2 py-1 rounded text-xs"
+                                                title="シフト作成データをリセット"
+                                            >
+                                                リセット
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* シフトテーブル */}
+                                <div className="relative border border-gray-200 rounded-lg overflow-hidden" style={{ height: 'fit-content' }}>
+                                    {/* 固定ヘッダー */}
+                                    <div className="flex border-b-2 border-gray-200 bg-gray-50">
+                                        {/* 左側固定ヘッダー */}
+                                        <div className="flex-none bg-gray-50 border-r-2 border-gray-200">
+                                            <div className="flex">
+                                                <div className="w-32 px-3 py-3 text-left font-medium border-r border-gray-200">氏名</div>
+                                                <div className="w-12 px-1 py-3 text-center font-medium border-r border-gray-200 text-xs">勤務日</div>
+                                                <div className="w-12 px-1 py-3 text-center font-medium border-r border-gray-200 text-xs">休日</div>
+                                                <div className="w-16 px-1 py-3 text-center font-medium border-r border-gray-200 text-xs">平日通常時間</div>
+                                                <div className="w-16 px-1 py-3 text-center font-medium border-r border-gray-200 text-xs">平日時間外</div>
+                                                <div className="w-16 px-1 py-3 text-center font-medium border-r border-gray-200 text-xs">休日通常時間</div>
+                                                <div className="w-16 px-1 py-3 text-center font-medium text-xs">休日時間外</div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* 右側スクロールヘッダー */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="overflow-x-auto" id="schedule-header-scroll">
+                                                <div className="flex" style={{ width: `${calendarDays.length * 80}px` }}>
+                                                    {calendarDays.map(day => (
+                                                        <div key={day} className={`w-20 px-2 py-3 text-center font-medium text-xs border-r border-gray-200 flex-none ${getDayColor(currentYear, currentMonth, day)}`}>
+                                                            {day}日
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* スクロール可能なボディ */}
+                                    <div className="overflow-x-hidden">
+                                        <div className="flex">
+                                            {/* 左側固定データ */}
+                                            <div className="flex-none bg-white border-r-2 border-gray-200">
+                                                {employees.filter(emp => emp.isActive).map(employee => {
+                                                    const stats = calculateStats[employee.id] || { workDays: 0, restDays: 0, weekdayRegularHours: 0, weekdayOvertimeHours: 0, holidayRegularHours: 0, holidayOvertimeHours: 0 };
+                                                    return (
+                                                        <div key={employee.id} className="border-b border-gray-200">
+                                                            {/* 統計情報行 */}
+                                                            <div className="flex" style={{ height: '35px' }}>
+                                                                <div className="w-32 px-2 py-1 font-medium border-r border-gray-200 bg-gray-50 flex items-center">
+                                                                    <div className="text-sm">{employee.name}</div>
+                                                                </div>
+                                                                <div className="w-12 px-1 py-1 text-center border-r border-gray-200 bg-white flex items-center justify-center text-xs">{stats.workDays}</div>
+                                                                <div className="w-12 px-1 py-1 text-center border-r border-gray-200 bg-white flex items-center justify-center text-xs">{stats.restDays}</div>
+                                                                <div className="w-16 px-1 py-1 text-center border-r border-gray-200 bg-white flex items-center justify-center text-xs">{stats.weekdayRegularHours.toFixed(1)}h</div>
+                                                                <div className="w-16 px-1 py-1 text-center border-r border-gray-200 bg-white flex items-center justify-center text-xs">{stats.weekdayOvertimeHours.toFixed(1)}h</div>
+                                                                <div className="w-16 px-1 py-1 text-center border-r border-gray-200 bg-white flex items-center justify-center text-xs">{stats.holidayRegularHours.toFixed(1)}h</div>
+                                                                <div className="w-16 px-1 py-1 text-center bg-white flex items-center justify-center text-xs">{stats.holidayOvertimeHours.toFixed(1)}h</div>
+                                                            </div>
+                                                            {/* 空白行（備考行の高さ調整用） */}
+                                                            <div className="flex" style={{ height: '25px' }}>
+                                                                <div className="w-32 px-2 py-0 border-r border-gray-200 bg-white"></div>
+                                                                <div className="w-12 px-1 py-0 border-r border-gray-200 bg-white"></div>
+                                                                <div className="w-12 px-1 py-0 border-r border-gray-200 bg-white"></div>
+                                                                <div className="w-16 px-1 py-0 border-r border-gray-200 bg-white"></div>
+                                                                <div className="w-16 px-1 py-0 border-r border-gray-200 bg-white"></div>
+                                                                <div className="w-16 px-1 py-0 border-r border-gray-200 bg-white"></div>
+                                                                <div className="w-16 px-1 py-0 bg-white"></div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* 右側スクロールデータ */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="overflow-x-auto" id="schedule-body-scroll">
+                                                                                                    <div className="flex flex-col" style={{ width: `${calendarDays.length * 80}px` }}>
+                                                    {employees.filter(emp => emp.isActive).map(employee => (
+                                                        <div key={employee.id} className="border-b border-gray-200">
+                                                            {/* シフト選択行 */}
+                                                            <div className="flex" style={{ height: '35px' }}>
+                                                                {calendarDays.map(day => {
+                                                                    const key = `${employee.id}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                                                                    const selectedShift = scheduleData[key];
+                                                                    const shift = shifts.find(s => s.id === selectedShift);
+                                                                    return (
+                                                                        <div key={day} className="w-20 px-1 py-1 border-r border-gray-200 flex-none flex items-center">
+                                                                                <select
+                                                                                    value={selectedShift || ''}
+                                                                                    onChange={(e) => handleScheduleChange(employee.id, day, e.target.value)}
+                                                                                    className={`w-full text-xs border rounded px-1 py-1 ${
+                                                                                        selectedShift === '休' ? 'bg-red-50 text-red-700 border-red-200' : 
+                                                                                        selectedShift ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white border-gray-300'
+                                                                                    } ${getCellColor(employee.id, day)}`}
+                                                                                    title={shift ? `${shift.name}: 通常${shift.regularHours}h + 時間外${shift.overtimeHours}h` : ''}
+                                                                                >
+                                                                                    <option value="">-</option>
+                                                                                    <option value="休">休</option>
+                                                                                    {shifts.map(shift => (
+                                                                                        <option key={shift.id} value={shift.id}>
+                                                                                            {shift.name}
+                                                                                        </option>
+                                                                                    ))}
+                                                                                </select>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                                {/* 備考入力行 */}
+                                                                <div className="flex" style={{ height: '25px' }}>
+                                                                    {calendarDays.map(day => {
+                                                                        const key = `${employee.id}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                                                                        const remarks = remarksData[key] || '';
+                                                                        return (
+                                                                            <div key={`remarks-${day}`} className="w-20 px-1 py-1 border-r border-gray-200 flex-none">
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={remarks}
+                                                                                    onChange={(e) => handleRemarksChange(employee.id, day, e.target.value)}
+                                                                                    className={`w-full text-xs border-0 bg-gray-50 px-1 py-0 rounded focus:ring-1 focus:ring-blue-300 focus:bg-white ${remarks === '休み希望' ? 'text-red-600' : ''}`}
+                                                                                    placeholder="備考"
+                                                                                    title={`${employee.name} ${day}日の備考`}
+                                                                                />
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* 統計ウィンドウボタン */}
+                                <div className="p-6 border-t bg-gray-50">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-lg font-semibold">統計情報</h3>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    try {
+                                                        console.log('印刷ボタンがクリックされました');
+                                                        console.log('employees:', employees);
+                                                        console.log('shifts:', shifts);
+                                                        console.log('scheduleData:', scheduleData);
+                                                        console.log('remarksData:', remarksData);
+                                                        console.log('currentYear:', currentYear);
+                                                        console.log('currentMonth:', currentMonth);
+                                                        
+                                                        const htmlContent = createPrintHTML(employees, shifts, scheduleData, remarksData, currentYear, currentMonth);
+                                                        console.log('HTML生成完了');
+                                                        
+                                                        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+                                                        const url = URL.createObjectURL(blob);
+                                                        const a = document.createElement('a');
+                                                        a.href = url;
+                                                        a.download = `調理場シフト表_${currentYear}_${String(currentMonth).padStart(2, '0')}.html`;
+                                                        document.body.appendChild(a);
+                                                        a.click();
+                                                        document.body.removeChild(a);
+                                                        URL.revokeObjectURL(url);
+                                                        alert('印刷用HTMLファイルをダウンロードしました！');
+                                                    } catch (error) {
+                                                        console.error('印刷エラー:', error);
+                                                        alert(`印刷エラーが発生しました: ${error.message}`);
+                                                    }
+                                                }}
+                                                className="flex items-center gap-2 bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                                            >
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M6 9V2a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7"></path>
+                                                    <polyline points="6,14 6,22 18,22 18,14"></polyline>
+                                                    <path d="M6 18h12"></path>
+                                                </svg>
+                                                HTML出力
+                                            </button>
+                                            <button
+                                                onClick={() => setShowStatsWindow(!showStatsWindow)}
+                                                className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                                            >
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M8 2v4"></path>
+                                                    <path d="M16 2v4"></path>
+                                                    <rect x="3" y="6" width="18" height="14" rx="2" ry="2"></rect>
+                                                    <path d="M7 12h10"></path>
+                                                </svg>
+                                                {showStatsWindow ? '統計ウィンドウを閉じる' : '統計ウィンドウを開く'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 従業員管理画面 */}
+                        {currentView === 'employees' && (
+                            <div className="bg-white rounded-lg shadow">
+                                <div className="p-6 border-b flex justify-between items-center">
+                                    <h2 className="text-xl font-semibold">従業員管理</h2>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex gap-1">
+                                            <button
+                                                onClick={async () => {
+                                                    const data = { employees, lastUpdated: new Date().toISOString() };
+                                                    await saveToFile(`cook_employees_${currentYear}_${String(currentMonth).padStart(2, '0')}.json`, data);
+                                                    alert('従業員管理データを保存しました！');
+                                                }}
+                                                className="bg-green-600 text-white px-2 py-1 rounded text-xs"
+                                                title="従業員管理データを保存"
+                                            >
+                                                保存
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    const data = await loadFromFile(`cook_employees_${currentYear}_${String(currentMonth).padStart(2, '0')}.json`, null);
+                                                    if (data && data.employees) {
+                                                        setEmployees(data.employees);
+                                                        alert('従業員管理データを読み込みました！');
+                                                    }
+                                                }}
+                                                className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
+                                                title="従業員管理データを読み込み"
+                                            >
+                                                読み込み
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (confirm('従業員管理データをリセットしますか？')) {
+                                                        setEmployees(sampleEmployees);
+                                                        alert('従業員管理データをリセットしました！');
+                                                    }
+                                                }}
+                                                className="bg-red-500 text-white px-2 py-1 rounded text-xs"
+                                                title="従業員管理データをリセット"
+                                            >
+                                                リセット
+                                            </button>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                setEmployeeForm({ id: '', name: '', employeeId: '', isActive: true });
+                                                setEditingEmployee(null);
+                                                setShowEmployeeForm(true);
+                                            }}
+                                            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                                        >
+                                            <Plus size={20} />
+                                            従業員追加
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {showEmployeeForm && (
+                                    <div className="p-6 border-b bg-gray-50">
+                                        <div className="grid grid-cols-4 gap-4 items-end">
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">名前</label>
+                                                <input
+                                                    type="text"
+                                                    value={employeeForm.name}
+                                                    onChange={(e) => setEmployeeForm({...employeeForm, name: e.target.value})}
+                                                    className="border rounded px-3 py-2 w-full"
+                                                    placeholder="従業員名を入力"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">従業員ID</label>
+                                                <input
+                                                    type="text"
+                                                    value={employeeForm.employeeId}
+                                                    onChange={(e) => setEmployeeForm({...employeeForm, employeeId: e.target.value})}
+                                                    className="border rounded px-3 py-2 w-full"
+                                                    placeholder="例: 001"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">シフト対象</label>
+                                                <div className="flex items-center h-10">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={employeeForm.isActive}
+                                                        onChange={(e) => setEmployeeForm({...employeeForm, isActive: e.target.checked})}
+                                                        className="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                    />
+                                                    <span className="text-sm text-gray-700">シフト表に表示</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={handleSaveEmployee}
+                                                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                                                >
+                                                    <Save size={16} />
+                                                    保存
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowEmployeeForm(false);
+                                                        setEditingEmployee(null);
+                                                    }}
+                                                    className="flex items-center gap-2 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                                                >
+                                                    <X size={16} />
+                                                    キャンセル
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="p-6">
+                                    <div className="mb-4">
+                                        <h3 className="text-lg font-medium text-gray-900 mb-2">調理師の従業員</h3>
+                                        <p className="text-sm text-gray-600">
+                                            全体: {employees.length}名 / シフト対象: {employees.filter(emp => emp.isActive).length}名
+                                        </p>
+                                    </div>
+                                    <div className="grid gap-4">
+                                        {employees.map(employee => (
+                                            <div 
+                                                key={employee.id} 
+                                                className={`flex items-center justify-between p-4 border rounded-lg cursor-move ${
+                                                    employee.isActive ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-300'
+                                                } ${
+                                                    draggedEmployee?.id === employee.id ? 'opacity-50 bg-blue-50' : ''
+                                                } ${
+                                                    dragOverEmployee?.id === employee.id ? 'border-blue-500 bg-blue-100' : ''
+                                                }`}
+                                                draggable
+                                                onDragStart={(e) => handleEmployeeDragStart(e, employee)}
+                                                onDragOver={(e) => handleEmployeeDragOver(e, employee)}
+                                                onDragLeave={handleEmployeeDragLeave}
+                                                onDrop={(e) => handleEmployeeDrop(e, employee)}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <Move size={16} className="text-gray-400" />
+                                                    <div className="flex items-center">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={employee.isActive}
+                                                            onChange={(e) => {
+                                                                setEmployees(employees.map(emp => 
+                                                                    emp.id === employee.id ? {...emp, isActive: e.target.checked} : emp
+                                                                ));
+                                                            }}
+                                                            className="mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className={`font-medium ${employee.isActive ? 'text-gray-900' : 'text-gray-500'}`}>
+                                                            {employee.name}
+                                                        </h3>
+                                                        <p className={`text-sm ${employee.isActive ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                            ID: {employee.employeeId || '未設定'}
+                                                            {!employee.isActive && ' (シフト対象外)'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleEditEmployee(employee)}
+                                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 px-3 py-1 rounded"
+                                                    >
+                                                        <Edit size={16} />
+                                                        編集
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteEmployee(employee.id)}
+                                                        className="flex items-center gap-1 text-red-600 hover:text-red-800 px-3 py-1 rounded"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                        削除
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 備考入力画面 */}
+                        {currentView === 'remarks' && (
+                            <div className="bg-white rounded-lg shadow">
+                                <div className="p-6 border-b flex justify-between items-center">
+                                    <h2 className="text-xl font-semibold">
+                                        調理師備考入力 ({currentYear}年{currentMonth}月)
+                                    </h2>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex gap-1">
+                                            <button
+                                                onClick={async () => {
+                                                    const data = { remarksData, remarkCategories, lastUpdated: new Date().toISOString() };
+                                                    await saveToFile(`cook_remarks_${currentYear}_${String(currentMonth).padStart(2, '0')}.json`, data);
+                                                    alert('備考入力データを保存しました！');
+                                                }}
+                                                className="bg-green-600 text-white px-2 py-1 rounded text-xs"
+                                                title="備考入力データを保存"
+                                            >
+                                                保存
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    const data = await loadFromFile(`cook_remarks_${currentYear}_${String(currentMonth).padStart(2, '0')}.json`, null);
+                                                    if (data) {
+                                                        setRemarksData(data.remarksData || {});
+                                                        setRemarkCategories(data.remarkCategories || ['休み希望', '会議', '回カ']);
+                                                        alert('備考入力データを読み込みました！');
+                                                    }
+                                                }}
+                                                className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
+                                                title="備考入力データを読み込み"
+                                            >
+                                                読み込み
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (confirm('備考入力データをリセットしますか？')) {
+                                                        setRemarksData({});
+                                                        setRemarkCategories(['休み希望', '会議', '回カ']);
+                                                        alert('備考入力データをリセットしました！');
+                                                    }
+                                                }}
+                                                className="bg-red-500 text-white px-2 py-1 rounded text-xs"
+                                                title="備考入力データをリセット"
+                                            >
+                                                リセット
+                                            </button>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                setRemarkCategoryForm('');
+                                                setEditingRemarkCategory(null);
+                                                setShowRemarkCategoryForm(true);
+                                            }}
+                                            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                                        >
+                                            <Plus size={20} />
+                                            備考項目追加
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {showRemarkCategoryForm && (
+                                    <div className="p-6 border-b bg-gray-50">
+                                        <div className="flex gap-4 items-end">
+                                            <div className="flex-1">
+                                                <label className="block text-sm font-medium mb-1">備考項目名</label>
+                                                <input
+                                                    type="text"
+                                                    value={remarkCategoryForm}
+                                                    onChange={(e) => setRemarkCategoryForm(e.target.value)}
+                                                    className="border rounded px-3 py-2 w-full"
+                                                    placeholder="例: 研修"
+                                                />
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={handleSaveRemarkCategory}
+                                                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                                                >
+                                                    <Save size={16} />
+                                                    保存
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowRemarkCategoryForm(false);
+                                                        setEditingRemarkCategory(null);
+                                                        setRemarkCategoryForm('');
+                                                    }}
+                                                    className="flex items-center gap-2 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                                                >
+                                                    <X size={16} />
+                                                    キャンセル
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 備考項目管理セクション */}
+                                <div className="p-6 border-b bg-gray-50">
+                                    <h3 className="text-lg font-medium text-gray-900 mb-4">備考項目管理</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {remarkCategories.map((category, index) => (
+                                            <div key={index} className="flex items-center gap-2 bg-white border rounded-lg px-3 py-2">
+                                                <span className="text-sm font-medium">{category}</span>
+                                                <button
+                                                    onClick={() => handleEditRemarkCategory(index)}
+                                                    className="text-blue-600 hover:text-blue-800"
+                                                >
+                                                    <Edit size={14} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteRemarkCategory(index)}
+                                                    className="text-red-600 hover:text-red-800"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                
+                                {/* 備考入力テーブル */}
+                                <div className="relative border border-gray-200 rounded-lg overflow-hidden">
+                                    {/* 固定ヘッダー */}
+                                    <div className="flex border-b-2 border-gray-200 bg-gray-50">
+                                        {/* 左側固定ヘッダー */}
+                                        <div className="flex-none bg-gray-50 border-r-2 border-gray-200">
+                                            <div className="w-32 px-3 py-3 text-left font-medium">氏名</div>
+                                        </div>
+                                        
+                                        {/* 右側スクロールヘッダー */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="overflow-x-auto" id="cook-remarks-header-scroll">
+                                                <div className="flex" style={{ width: `${calendarDays.length * 128}px` }}>
+                                                    {calendarDays.map(day => (
+                                                        <div key={day} className={`w-32 px-2 py-3 text-center font-medium text-xs border-r border-gray-200 flex-none ${getDayColor(currentYear, currentMonth, day)}`}>
+                                                            {day}日
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* スクロール可能なボディ */}
+                                    <div className="max-h-96 overflow-y-auto overflow-x-hidden">
+                                        <div className="flex">
+                                            {/* 左側固定データ */}
+                                            <div className="flex-none bg-white border-r-2 border-gray-200">
+                                                {employees.filter(emp => emp.isActive).map(employee => (
+                                                    <div key={employee.id} className="border-b border-gray-200">
+                                                        <div className="w-32 px-3 py-4 font-medium bg-gray-50 flex items-center" style={{ height: '80px' }}>
+                                                            {employee.name}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* 右側スクロールデータ */}
+                                            <div className="flex-1 min-w-0 overflow-hidden">
+                                                <div className="overflow-x-auto" id="cook-remarks-body-scroll">
+                                                    <div className="flex flex-col" style={{ width: `${calendarDays.length * 128}px` }}>
+                                                        {employees.filter(emp => emp.isActive).map(employee => (
+                                                            <div key={employee.id} className="border-b border-gray-200">
+                                                                <div className="flex" style={{ height: '80px' }}>
+                                                                    {calendarDays.map(day => {
+                                                                        const key = `${employee.id}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                                                                        const remarks = remarksData[key] || '';
+                                                                        const selectedShift = scheduleData[key];
+                                                                        return (
+                                                                            <div key={day} className="w-32 px-2 py-2 border-r border-gray-200 flex-none">
+                                                                                {/* 備考選択 */}
+                                                                                <div className="mb-1">
+                                                                                    <select
+                                                                                        value={remarkCategories.includes(remarks) ? remarks : ''}
+                                                                                        onChange={(e) => handleRemarksChange(employee.id, day, e.target.value)}
+                                                                                        className={`w-full text-xs border rounded px-1 py-1 bg-white ${remarkCategories.includes(remarks) && remarks === '休み希望' ? 'text-red-600' : ''}`}
+                                                                                    >
+                                                                                        <option value="">選択</option>
+                                                                                        {remarkCategories.map(category => (
+                                                                                            <option key={category} value={category} className={category === '休み希望' ? 'text-red-600' : ''}>
+                                                                                                {category}
+                                                                                            </option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                </div>
+                                                                                
+                                                                                {/* 色設定チェックボックス */}
+                                                                                <div className="flex gap-1 mb-1">
+                                                                                    <label className="flex items-center">
+                                                                                        <input
+                                                                                            type="checkbox"
+                                                                                            checked={remarks.includes('[yellow]')}
+                                                                                            onChange={() => handleCellColorChange(employee.id, day, 'yellow')}
+                                                                                            className="w-3 h-3 bg-yellow-400 border-yellow-600 rounded focus:ring-yellow-500"
+                                                                                            title="黄色"
+                                                                                        />
+                                                                                        <span className="text-xs ml-1 text-yellow-700">黄</span>
+                                                                                    </label>
+                                                                                    <label className="flex items-center">
+                                                                                        <input
+                                                                                            type="checkbox"
+                                                                                            checked={remarks.includes('[purple]')}
+                                                                                            onChange={() => handleCellColorChange(employee.id, day, 'purple')}
+                                                                                            className="w-3 h-3 bg-purple-400 border-purple-600 rounded focus:ring-purple-500"
+                                                                                            title="紫色"
+                                                                                        />
+                                                                                        <span className="text-xs ml-1 text-purple-700">紫</span>
+                                                                                    </label>
+                                                                                    <label className="flex items-center">
+                                                                                        <input
+                                                                                            type="checkbox"
+                                                                                            checked={remarks.includes('[green]')}
+                                                                                            onChange={() => handleCellColorChange(employee.id, day, 'green')}
+                                                                                            className="w-3 h-3 bg-green-400 border-green-600 rounded focus:ring-green-500"
+                                                                                            title="緑色"
+                                                                                        />
+                                                                                        <span className="text-xs ml-1 text-green-700">緑</span>
+                                                                                    </label>
+                                                                                </div>
+                                                                                
+                                                                                {/* 自由記載 */}
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={remarkCategories.includes(remarks) ? '' : remarks.replace(/\[(yellow|purple|green)\]/g, '').trim()}
+                                                                                    onChange={(e) => handleRemarksChange(employee.id, day, e.target.value)}
+                                                                                    className="w-full text-xs border rounded px-1 py-1 bg-gray-50"
+                                                                                    placeholder="自由記載"
+                                                                                />
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* シフト管理画面 */}
+                        {currentView === 'shifts' && (
+                            <div className="bg-white rounded-lg shadow">
+                                <div className="p-6 border-b flex justify-between items-center">
+                                    <h2 className="text-xl font-semibold">シフト一覧</h2>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex gap-1">
+                                            <button
+                                                onClick={async () => {
+                                                    const data = { shifts, lastUpdated: new Date().toISOString() };
+                                                    await saveToFile(`cook_shifts_${currentYear}_${String(currentMonth).padStart(2, '0')}.json`, data);
+                                                    alert('シフト管理データを保存しました！');
+                                                }}
+                                                className="bg-green-600 text-white px-2 py-1 rounded text-xs"
+                                                title="シフト管理データを保存"
+                                            >
+                                                保存
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    const data = await loadFromFile(`cook_shifts_${currentYear}_${String(currentMonth).padStart(2, '0')}.json`, null);
+                                                    if (data && data.shifts) {
+                                                        setShifts(data.shifts);
+                                                        alert('シフト管理データを読み込みました！');
+                                                    }
+                                                }}
+                                                className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
+                                                title="シフト管理データを読み込み"
+                                            >
+                                                読み込み
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (confirm('シフト管理データをリセットしますか？')) {
+                                                        setShifts(cookShifts);
+                                                        alert('シフト管理データをリセットしました！');
+                                                    }
+                                                }}
+                                                className="bg-red-500 text-white px-2 py-1 rounded text-xs"
+                                                title="シフト管理データをリセット"
+                                            >
+                                                リセット
+                                            </button>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                setShiftForm({ id: '', name: '', regularHours: 5.5, overtimeHours: 0, showInStats: true, decomposeTo: [] });
+                                                setEditingShift(null);
+                                                setShowShiftForm(true);
+                                            }}
+                                            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                                        >
+                                            <Plus size={20} />
+                                            シフト追加
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {showShiftForm && !editingShift && (
+                                    <div className="p-6 border-b bg-gray-50">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">シフト名</label>
+                                                <input
+                                                    type="text"
+                                                    value={shiftForm.name}
+                                                    onChange={(e) => setShiftForm({...shiftForm, name: e.target.value})}
+                                                    className="border rounded px-3 py-2 w-full"
+                                                    placeholder="例: 早"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">通常勤務時間</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.25"
+                                                    value={shiftForm.regularHours || ''}
+                                                    onChange={(e) => setShiftForm({...shiftForm, regularHours: parseFloat(e.target.value) || 0})}
+                                                    className="border rounded px-3 py-2 w-full"
+                                                    placeholder="5.5"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">時間外勤務時間</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.25"
+                                                    value={shiftForm.overtimeHours || ''}
+                                                    onChange={(e) => setShiftForm({...shiftForm, overtimeHours: parseFloat(e.target.value) || 0})}
+                                                    className="border rounded px-3 py-2 w-full"
+                                                    placeholder="2"
+                                                />
+                                            </div>
+                                            <div className="flex items-center mt-6">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={shiftForm.showInDailyStats}
+                                                    onChange={e => setShiftForm({...shiftForm, showInDailyStats: e.target.checked})}
+                                                    className="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                />
+                                                <span className="text-sm">日別統計に表示</span>
+                                            </div>
+                                            {!shiftForm.showInDailyStats && (
+                                                <div className="col-span-2">
+                                                    <label className="block text-sm font-medium mb-2">分解先シフト設定</label>
+                                                    <div className="flex flex-wrap gap-2 mb-2">
+                                                        {shifts.filter(s => s.showInDailyStats).map(shift => (
+                                                            <label key={shift.id} className="flex items-center gap-2">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={shiftForm.decomposeTo.includes(shift.id)}
+                                                                    onChange={(e) => {
+                                                                        if (e.target.checked) {
+                                                                            setShiftForm({
+                                                                                ...shiftForm,
+                                                                                decomposeTo: [...shiftForm.decomposeTo, shift.id]
+                                                                            });
+                                                                        } else {
+                                                                            setShiftForm({
+                                                                                ...shiftForm,
+                                                                                decomposeTo: shiftForm.decomposeTo.filter(id => id !== shift.id)
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                                />
+                                                                <span className="text-sm">{shift.name}</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                    <p className="text-xs text-gray-600">
+                                                        非表示にした場合、このシフトが入力された際にどのシフトの統計にカウントするかを設定します。
+                                                    </p>
+                                                </div>
+                                            )}
+                                            <div className="flex items-center">
+                                                <button
+                                                    onClick={handleSaveShift}
+                                                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                                                >
+                                                    <Save size={16} />
+                                                    保存
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowShiftForm(false);
+                                                        setEditingShift(null);
+                                                    }}
+                                                    className="flex items-center gap-2 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 ml-2"
+                                                >
+                                                    <X size={16} />
+                                                    キャンセル
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="p-6">
+                                    <div className="mb-4">
+                                        <h3 className="text-lg font-medium text-gray-900 mb-2">シフト一覧（ドラッグ&ドロップで順序変更可能）</h3>
+                                        <p className="text-sm text-gray-600">シフトをドラッグして順序を変更できます。統計表示の順序も変わります。</p>
+                                    </div>
+                                    <div className="grid gap-4">
+                                        {shifts.map(shift => (
+                                            <div key={shift.id}>
+                                                <div 
+                                                    className={`flex items-center justify-between p-4 border rounded-lg cursor-move ${
+                                                        draggedShift?.id === shift.id ? 'opacity-50 bg-blue-50' : ''
+                                                    } ${
+                                                        dragOverShift?.id === shift.id ? 'border-blue-500 bg-blue-100' : ''
+                                                    }`}
+                                                    draggable
+                                                    onDragStart={(e) => handleDragStart(e, shift)}
+                                                    onDragOver={(e) => handleDragOver(e, shift)}
+                                                    onDragLeave={handleDragLeave}
+                                                    onDrop={(e) => handleDrop(e, shift)}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <Move size={16} className="text-gray-400" />
+                                                        <div>
+                                                            <h3 className="font-medium">{shift.name}</h3>
+                                                            <p className="text-sm text-gray-600">
+                                                                通常勤務: {shift.regularHours}時間 | 時間外: {shift.overtimeHours}時間
+                                                            </p>
+                                                            <div className="flex items-center mt-1">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={shift.showInDailyStats}
+                                                                    onChange={e => {
+                                                                        setShifts(shifts.map(s => s.id === shift.id ? { ...s, showInDailyStats: e.target.checked } : s));
+                                                                    }}
+                                                                    className="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                                />
+                                                                <span className="text-xs text-gray-700">日別統計に表示</span>
+                                                            </div>
+                                                            {!shift.showInDailyStats && shift.decomposeTo.length > 0 && (
+                                                                <div className="mt-1">
+                                                                    <span className="text-xs text-gray-600">分解先: {shift.decomposeTo.map(id => shifts.find(s => s.id === id)?.name).join(', ')}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => handleEditShift(shift)}
+                                                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 px-3 py-1 rounded"
+                                                        >
+                                                            <Edit size={16} />
+                                                            編集
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteShift(shift.id)}
+                                                            className="flex items-center gap-1 text-red-600 hover:text-red-800 px-3 py-1 rounded"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                            削除
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* 編集フォームを該当シフトの下に表示 */}
+                                                {showShiftForm && editingShift && editingShift.id === shift.id && (
+                                                    <div className="mt-2 p-4 border rounded-lg bg-gray-50">
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div>
+                                                                <label className="block text-sm font-medium mb-1">シフト名</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={shiftForm.name}
+                                                                    onChange={(e) => setShiftForm({...shiftForm, name: e.target.value})}
+                                                                    className="border rounded px-3 py-2 w-full"
+                                                                    placeholder="例: 早"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-sm font-medium mb-1">通常勤務時間</label>
+                                                                <input
+                                                                    type="number"
+                                                                    step="0.25"
+                                                                    value={shiftForm.regularHours || ''}
+                                                                    onChange={(e) => setShiftForm({...shiftForm, regularHours: parseFloat(e.target.value) || 0})}
+                                                                    className="border rounded px-3 py-2 w-full"
+                                                                    placeholder="5.5"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-sm font-medium mb-1">時間外勤務時間</label>
+                                                                <input
+                                                                    type="number"
+                                                                    step="0.25"
+                                                                    value={shiftForm.overtimeHours || ''}
+                                                                    onChange={(e) => setShiftForm({...shiftForm, overtimeHours: parseFloat(e.target.value) || 0})}
+                                                                    className="border rounded px-3 py-2 w-full"
+                                                                    placeholder="2"
+                                                                />
+                                                            </div>
+                                                            <div className="flex items-center mt-6">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={shiftForm.showInDailyStats}
+                                                                    onChange={e => setShiftForm({...shiftForm, showInDailyStats: e.target.checked})}
+                                                                    className="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                                />
+                                                                <span className="text-sm">日別統計に表示</span>
+                                                            </div>
+                                                            {!shiftForm.showInDailyStats && (
+                                                                <div className="col-span-2">
+                                                                    <label className="block text-sm font-medium mb-2">分解先シフト設定</label>
+                                                                    <div className="flex flex-wrap gap-2 mb-2">
+                                                                        {shifts.filter(s => s.showInDailyStats).map(s => (
+                                                                            <label key={s.id} className="flex items-center gap-2">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={shiftForm.decomposeTo.includes(s.id)}
+                                                                                    onChange={(e) => {
+                                                                                        if (e.target.checked) {
+                                                                                            setShiftForm({
+                                                                                                ...shiftForm,
+                                                                                                decomposeTo: [...shiftForm.decomposeTo, s.id]
+                                                                                            });
+                                                                                        } else {
+                                                                                            setShiftForm({
+                                                                                                ...shiftForm,
+                                                                                decomposeTo: shiftForm.decomposeTo.filter(id => id !== s.id)
+                                                                                            });
+                                                                                        }
+                                                                                    }}
+                                                                                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                                                />
+                                                                                <span className="text-sm">{s.name}</span>
+                                                                            </label>
+                                                                        ))}
+                                                                    </div>
+                                                                    <p className="text-xs text-gray-600">
+                                                                        非表示にした場合、このシフトが入力された際にどのシフトの統計にカウントするかを設定します。
+                                                                    </p>
+                                                                </div>
+                                                            )}
+                                                            <div className="flex items-center">
+                                                                <button
+                                                                    onClick={handleSaveShift}
+                                                                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                                                                >
+                                                                    <Save size={16} />
+                                                                    保存
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setShowShiftForm(false);
+                                                                        setEditingShift(null);
+                                                                    }}
+                                                                    className="flex items-center gap-2 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 ml-2"
+                                                                >
+                                                                    <X size={16} />
+                                                                    キャンセル
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* データ管理パネル */}
+                    <div className="my-4 p-4 bg-gray-50 rounded border max-w-7xl mx-auto">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <span className="font-bold">データ管理</span>
+                            </div>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={async () => {
+                                        // クリーンアップ処理: 有効な従業員IDのみのデータに絞る
+                                        const validIds = new Set(employees.map(emp => emp.id));
+                                        const filteredScheduleData = Object.fromEntries(
+                                            Object.entries(scheduleData).filter(([key]) => validIds.has(key.split('-')[0]))
+                                        );
+                                        const filteredRemarksData = remarksData ? Object.fromEntries(
+                                            Object.entries(remarksData).filter(([key]) => validIds.has(key.split('-')[0]))
+                                        ) : undefined;
+                                        const data = {
+                                            employees,
+                                            shifts,
+                                            scheduleData: filteredScheduleData,
+                                            ...(filteredRemarksData !== undefined ? {remarksData: filteredRemarksData} : {}),
+                                            remarkCategories,
+                                            holidays,
+                                            lastUpdated: new Date().toISOString()
+                                        };
+                                        await saveToFile(`cook_data_${currentYear}_${String(currentMonth).padStart(2, '0')}.json`, data);
+                                        alert('データをファイルに保存しました！');
+                                    }} 
+                                    className="bg-green-600 text-white px-3 py-1 rounded text-sm"
+                                >
+                                    データ保存
+                                </button>
+                                <button 
+                                    onClick={async () => {
+                                        const data = await loadFromFile(`cook_data_${currentYear}_${String(currentMonth).padStart(2, '0')}.json`, null);
+                                        if (data) {
+                                            setEmployees(data.employees || sampleEmployees);
+                                            setShifts(data.shifts || cookShifts);
+                                            setScheduleData(data.scheduleData || {});
+                                            setRemarksData(data.remarksData || {});
+                                            setRemarkCategories(data.remarkCategories || ['休み希望', '会議', '回カ']);
+                                            setHolidays(data.holidays || ['2025-07-15', '2025-07-21']);
+                                            alert('データをファイルから読み込みました！');
+                                        }
+                                    }} 
+                                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                                >
+                                    データ読み込み
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (confirm('すべてのデータをリセットしますか？この操作は元に戻せません。')) {
+                                            localStorage.clear();
+                                            window.location.reload();
+                                        }
+                                    }} 
+                                    className="bg-red-500 text-white px-3 py-1 rounded text-sm"
+                                >
+                                    データリセット
+                                </button>
+                            </div>
+                        </div>
+
+
+                        
+                        {/* 休日管理セクション */}
+                        <div className="border-t pt-4">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold">独自休日・祝日管理</span>
+                                    <button onClick={() => setShowHolidayForm(true)} className="bg-blue-500 text-white px-2 py-1 rounded text-xs">追加</button>
+                                </div>
+                            </div>
+                            {showHolidayForm && (
+                                <form onSubmit={handleAddHoliday} className="flex gap-2 mb-2">
+                                    <input type="date" value={newHoliday} onChange={e => setNewHoliday(e.target.value)} className="border rounded px-2 py-1 text-xs" />
+                                    <button type="submit" className="bg-green-500 text-white px-2 py-1 rounded text-xs">登録</button>
+                                    <button type="button" onClick={() => setShowHolidayForm(false)} className="bg-gray-400 text-white px-2 py-1 rounded text-xs">キャンセル</button>
+                                </form>
+                            )}
+                            <ul className="flex flex-wrap gap-2">
+                                {holidays.map(h => (
+                                    <li key={h} className="bg-white border rounded px-2 py-1 text-xs flex items-center gap-1">
+                                        {h}
+                                        <button onClick={() => handleDeleteHoliday(h)} className="text-red-500 ml-1">×</button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+
+                    {/* 移動可能な統計ウィンドウ */}
+                    {showStatsWindow && (
+                        <div
+                            className="fixed bg-white border-2 border-gray-300 rounded-lg shadow-xl z-50"
+                            style={{
+                                left: `${statsWindowPosition.x}px`,
+                                top: `${statsWindowPosition.y}px`,
+                                width: '400px',
+                                maxHeight: 'calc(100vh - 100px)',
+                                cursor: isDraggingStatsWindow ? 'grabbing' : 'grab'
+                            }}
+                        >
+                            {/* ウィンドウヘッダー */}
+                            <div
+                                className="bg-gray-100 px-4 py-2 border-b border-gray-300 rounded-t-lg flex items-center justify-between cursor-grab active:cursor-grabbing"
+                                onMouseDown={handleStatsWindowMouseDown}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M8 2v4"></path>
+                                        <path d="M16 2v4"></path>
+                                        <rect x="3" y="6" width="18" height="14" rx="2" ry="2"></rect>
+                                        <path d="M7 12h10"></path>
+                                    </svg>
+                                    <span className="font-medium">日別シフト統計 - {currentYear}年{currentMonth}月</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setShowStatsWindow(false)}
+                                        className="text-gray-500 hover:text-gray-700"
+                                        title="ウィンドウを閉じる"
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* ウィンドウコンテンツ */}
+                            <div className="p-4 overflow-auto" style={{ maxHeight: 'calc(100vh - 150px)' }}>
+                                <div className="relative border border-gray-200 rounded-lg overflow-hidden">
+                                    {/* 固定ヘッダー */}
+                                    <div className="flex border-b-2 border-gray-300 bg-gray-100">
+                                        <div className="w-24 px-3 py-2 text-center font-medium text-sm border-r border-gray-300 flex-shrink-0">シフト</div>
+                                        <div className="flex-1 min-w-0">
+                                            <div 
+                                                className="overflow-x-auto" 
+                                                id="popup-daily-stats-header-scroll"
+                                                onScroll={(e) => {
+                                                    const bodyScroll = document.getElementById('popup-daily-stats-body-scroll');
+                                                    if (bodyScroll) {
+                                                        bodyScroll.scrollLeft = e.target.scrollLeft;
+                                                    }
+                                                }}
+                                            >
+                                                <div className="flex" style={{ width: `${calendarDays.length * 80}px` }}>
+                                                    {calendarDays.map(day => (
+                                                        <div key={day} className={`w-20 px-2 py-2 text-center font-medium text-xs border-r border-gray-300 flex-shrink-0 ${getDayColor(currentYear, currentMonth, day)}`}>
+                                                            {day}日
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* スクロール可能なボディ */}
+                                    <div className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(100vh - 250px)' }}>
+                                        <div className="flex">
+                                            {/* 左側固定データ */}
+                                            <div className="flex-none bg-white border-r-2 border-gray-200">
+                                                {shifts.filter(shift => shift.showInDailyStats).map(shift => (
+                                                    <div key={shift.id} className="border-b border-gray-200">
+                                                        <div className="flex" style={{ height: '35px' }}>
+                                                            <div className="w-24 px-3 py-1 text-center font-medium text-sm border-r border-gray-200 bg-gray-50 flex items-center justify-center">
+                                                                {shift.name}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            
+                                            {/* 右側スクロールデータ */}
+                                            <div className="flex-1 min-w-0 overflow-hidden">
+                                                <div 
+                                                    className="overflow-x-auto" 
+                                                    id="popup-daily-stats-body-scroll"
+                                                    onScroll={(e) => {
+                                                        const headerScroll = document.getElementById('popup-daily-stats-header-scroll');
+                                                        if (headerScroll) {
+                                                            headerScroll.scrollLeft = e.target.scrollLeft;
+                                                        }
+                                                    }}
+                                                >
+                                                    <div className="flex flex-col" style={{ width: `${calendarDays.length * 80}px` }}>
+                                                        {shifts.filter(shift => shift.showInDailyStats).map(shift => (
+                                                            <div key={shift.id} className="border-b border-gray-200">
+                                                                <div className="flex" style={{ height: '35px' }}>
+                                                                    {calendarDays.map(day => {
+                                                                        const dayStats = calculateDailyStats[day] || {};
+                                                                        return (
+                                                                            <div key={day} className="w-20 px-2 py-1 text-center text-sm border-r border-gray-200 flex-shrink-0 flex items-center justify-center">
+                                                                                <span className={`inline-block w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
+                                                                                    (dayStats[shift.id] || 0) > 0 
+                                                                                        ? 'bg-blue-100 text-blue-800' 
+                                                                                        : 'bg-gray-100 text-gray-500'
+                                                                                }`}>
+                                                                                    {dayStats[shift.id] || 0}
+                                                                                </span>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        ReactDOM.render(<CookApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>

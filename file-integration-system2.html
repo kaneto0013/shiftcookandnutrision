@@ -1,0 +1,2602 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シフトデータ統合・エクスポートシステム</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.0/jspdf.plugin.autotable.min.js"></script>
+    <script>
+        // 日本語フォントの設定（より確実な方法）
+        const { jsPDF } = window.jspdf;
+        
+        // 日本語フォントの代替設定
+        function setupJapaneseFont(doc) {
+            try {
+                // デフォルトフォントを日本語対応に設定
+                doc.setFont("helvetica");
+                doc.setFontSize(12);
+                
+                // 日本語文字列の処理
+                return true;
+            } catch (error) {
+                console.error("フォント設定エラー:", error);
+                return false;
+            }
+        }
+        
+        // 日本語フォントの設定
+        jsPDF.API.addFont("NotoSansJP-VariableFont_wght.ttf", "NotoSansJP", "normal");
+    </script>
+    <style>
+        .file-input-container {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        .file-input-container input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        .file-input-label {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #3b82f6;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .file-input-label:hover {
+            background: #2563eb;
+        }
+        .status-message {
+            padding: 12px;
+            border-radius: 6px;
+            margin: 8px 0;
+        }
+        .status-success {
+            background-color: #d1fae5;
+            border: 1px solid #10b981;
+            color: #065f46;
+        }
+        .status-error {
+            background-color: #fee2e2;
+            border: 1px solid #ef4444;
+            color: #991b1b;
+        }
+        .status-info {
+            background-color: #dbeafe;
+            border: 1px solid #3b82f6;
+            color: #1e40af;
+        }
+        .status-warning {
+            background-color: #fef3c7;
+            border: 1px solid #f59e0b;
+            color: #92400e;
+        }
+        .data-preview {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 12px;
+            background-color: #f9fafb;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .shift-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            font-size: 32px;
+            font-weight: bold;
+        }
+        
+        .shift-table th,
+        .shift-table td {
+            border: 2px solid #333;
+            padding: 16px 12px;
+            text-align: center;
+            vertical-align: middle;
+            font-weight: bold;
+        }
+        
+        .shift-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            font-size: 32px;
+        }
+        
+        .employee-name {
+            font-weight: bold;
+            background-color: #e8f4fd;
+            min-width: 120px;
+            font-size: 32px;
+        }
+        
+        .employee-header {
+            background-color: #e8f4fd;
+            font-weight: bold;
+            font-size: 32px;
+            border: 2px solid #333;
+        }
+        
+        .date-header {
+            background-color: #f0f0f0;
+            font-size: 32px;
+            font-weight: bold;
+            border: 2px solid #333;
+        }
+        
+        .weekday-header {
+            background-color: #f8f8f8;
+            font-size: 32px;
+            font-weight: bold;
+            border: 2px solid #333;
+        }
+        
+        .weekend {
+            background-color: #fff0f0;
+        }
+        
+        .weekday {
+            background-color: #f0fff0;
+        }
+        
+        .shift-cell {
+            min-width: 80px;
+            height: 60px;
+            font-size: 32px;
+            font-weight: bold;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 16px;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+            font-weight: bold;
+        }
+        
+        .print-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .print-button:hover {
+            background-color: #0056b3;
+        }
+        
+        @media screen {
+            .print-button { display: block; }
+        }
+        
+        @media print {
+            .print-button { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen bg-gray-50">
+        <!-- ヘッダー -->
+        <div class="bg-white shadow-sm border-b">
+            <div class="max-w-7xl mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <h1 class="text-2xl font-bold text-gray-900">シフトデータ統合・エクスポートシステム</h1>
+                    <div class="flex items-center gap-4">
+                        <div class="text-sm text-gray-600">
+                            <span id="current-time"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <!-- システム説明 -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <h2 class="text-lg font-semibold text-blue-800 mb-2">システム概要</h2>
+                <p class="text-sm text-blue-600 mb-2">
+                    backupフォルダ内の調理場（cook）と栄養士（nutrition）の完全なシフトデータを統合し、
+                    エクセルファイル（別シート）またはCSVファイル（統合テーブル）として出力します。
+                </p>
+                <div class="text-xs text-blue-500">
+                    <p>• エクセル：栄養士・調理場を同一ファイルの別シートに出力</p>
+                    <p>• CSV：両者を同一テーブルで統合し、ファイルはexportフォルダに保存</p>
+                    <p>• HTML：印刷に最適化されたHTMLファイルを出力（オフライン環境対応）</p>
+                    <p>• 未入力シフトがある場合は日付を通達し、処理継続の確認を行います</p>
+                    <p>• 新しく登録されたシフトも含めて完全なデータを出力します</p>
+                </div>
+            </div>
+
+            <!-- ファイル選択セクション -->
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">ファイル選択</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- 栄養士ファイル選択 -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">栄養士データファイル</label>
+                        <div class="file-input-container">
+                            <input type="file" id="nutrition-file" accept=".json" onchange="handleFileSelect('nutrition')">
+                            <label for="nutrition-file" class="file-input-label">ファイルを選択</label>
+                        </div>
+                        <div id="nutrition-file-info" class="mt-2 text-sm text-gray-600"></div>
+                    </div>
+
+                    <!-- 調理場ファイル選択 -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">調理場データファイル</label>
+                        <div class="file-input-container">
+                            <input type="file" id="cook-file" accept=".json" onchange="handleFileSelect('cook')">
+                            <label for="cook-file" class="file-input-label">ファイルを選択</label>
+                        </div>
+                        <div id="cook-file-info" class="mt-2 text-sm text-gray-600"></div>
+                    </div>
+                </div>
+
+
+            </div>
+
+            <!-- ステータスメッセージ -->
+            <div id="status-messages"></div>
+
+            <!-- データプレビュー -->
+            <div id="data-preview-section" class="bg-white rounded-lg shadow p-6 mb-6" style="display: none;">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">データプレビュー</h3>
+                <div id="data-preview" class="data-preview"></div>
+            </div>
+
+            <!-- エクスポートセクション -->
+            <div id="export-section" class="bg-white rounded-lg shadow p-6" style="display: none;">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">エクスポート</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- エクセルエクスポート -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="text-md font-medium text-gray-900 mb-3">エクセル出力</h4>
+                        <p class="text-sm text-gray-600 mb-3">栄養士・調理場を同一ファイルの別シートに出力</p>
+                        <button 
+                            id="excel-export-btn"
+                            onclick="exportToExcel()" 
+                            class="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled
+                        >
+                            <span id="excel-btn-text">エクセル出力</span>
+                            <span id="excel-loading" class="loading ml-2" style="display: none;"></span>
+                        </button>
+                    </div>
+
+                    <!-- CSVエクスポート -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="text-md font-medium text-gray-900 mb-3">CSV出力</h4>
+                        <p class="text-sm text-gray-600 mb-3">両者を同一テーブルで統合し、exportフォルダに保存</p>
+                        <button 
+                            id="csv-export-btn"
+                            onclick="exportToCSV()" 
+                            class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled
+                        >
+                            <span id="csv-btn-text">CSV出力</span>
+                            <span id="csv-loading" class="loading ml-2" style="display: none;"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- HTML出力セクション -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h4 class="text-md font-medium text-gray-900 mb-3">印刷用HTML出力</h4>
+                    <p class="text-sm text-gray-600 mb-3">印刷に最適化されたHTMLファイルを出力</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- 統合HTML出力 -->
+                        <div>
+                            <p class="text-xs text-gray-600 mb-2">調理場・栄養士統合</p>
+                            <button 
+                                id="html-export-btn"
+                                onclick="exportToHTML()" 
+                                class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled
+                            >
+                                <span id="html-btn-text">統合HTML出力</span>
+                                <span id="html-loading" class="loading ml-2" style="display: none;"></span>
+                            </button>
+                        </div>
+
+                        <!-- 調理場HTML出力 -->
+                        <div>
+                            <p class="text-xs text-gray-600 mb-2">調理場のみ</p>
+                            <button 
+                                id="cook-html-export-btn"
+                                onclick="exportCookHTML()" 
+                                class="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled
+                            >
+                                <span id="cook-html-btn-text">調理場HTML出力</span>
+                                <span id="cook-html-loading" class="loading ml-2" style="display: none;"></span>
+                            </button>
+                        </div>
+
+                        <!-- 栄養士HTML出力 -->
+                        <div>
+                            <p class="text-xs text-gray-600 mb-2">栄養士のみ</p>
+                            <button 
+                                id="nutrition-html-export-btn"
+                                onclick="exportNutritionHTML()" 
+                                class="w-full bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled
+                            >
+                                <span id="nutrition-html-btn-text">栄養士HTML出力</span>
+                                <span id="nutrition-html-loading" class="loading ml-2" style="display: none;"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- フッター -->
+        <div class="mt-8 p-4 bg-gray-50 border-t">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex justify-between items-center">
+                    <div class="text-sm text-gray-600">
+                        <p>シフトデータ統合・エクスポートシステム v1.0</p>
+                        <p>調理場・栄養士のシフトデータを統合してエクスポート</p>
+                    </div>
+                    <div class="flex gap-4">
+                        <button 
+                            onclick="clearAllData()" 
+                            class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm"
+                        >
+                            データクリア
+                        </button>
+                        <button 
+                            onclick="refreshPage()" 
+                            class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 text-sm"
+                        >
+                            ページ更新
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let cookData = null;
+        let nutritionData = null;
+        let missingShifts = [];
+
+        // ファイル選択処理
+        function handleFileSelect(type) {
+            const fileInput = document.getElementById(type + '-file');
+            const fileInfo = document.getElementById(type + '-file-info');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                fileInfo.textContent = '';
+                return;
+            }
+
+            fileInfo.textContent = `選択済み: ${file.name}`;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (type === 'cook') {
+                        cookData = data;
+                        console.log('調理場データ読み込み:', data);
+                        showStatus('success', `調理場データを読み込みました: ${file.name}`);
+                    } else {
+                        nutritionData = data;
+                        console.log('栄養士データ読み込み:', data);
+                        showStatus('success', `栄養士データを読み込みました: ${file.name}`);
+                    }
+
+                    checkDataReady();
+                } catch (error) {
+                    showStatus('error', `${type === 'cook' ? '調理場' : '栄養士'}ファイルの読み込みに失敗しました: ${error.message}`);
+                    console.error('ファイル読み込みエラー:', error);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+
+
+        // データ準備チェック
+        function checkDataReady() {
+            console.log('データ準備チェック:', {
+                cookData: !!cookData,
+                nutritionData: !!nutritionData
+            });
+            
+            // データが両方読み込まれている場合
+            if (cookData && nutritionData) {
+                showStatus('success', 'データが読み込まれました。データを検証中...');
+                
+                // データ検証
+                validateData();
+                
+                // プレビュー表示
+                showDataPreview();
+                
+                // エクスポートボタンを有効化
+                document.getElementById('excel-export-btn').disabled = false;
+                document.getElementById('csv-export-btn').disabled = false;
+                document.getElementById('html-export-btn').disabled = false;
+                
+                // 個別HTML出力ボタンの有効化
+                if (cookData) {
+                    document.getElementById('cook-html-export-btn').disabled = false;
+                }
+                if (nutritionData) {
+                    document.getElementById('nutrition-html-export-btn').disabled = false;
+                }
+                
+                document.getElementById('export-section').style.display = 'block';
+            } else {
+                // 部分的に読み込まれている場合の情報表示
+                const loadedFiles = [];
+                if (cookData) loadedFiles.push('調理場データ');
+                if (nutritionData) loadedFiles.push('栄養士データ');
+                
+                if (loadedFiles.length > 0) {
+                    showStatus('info', `読み込み済み: ${loadedFiles.join(', ')}`);
+                }
+            }
+        }
+
+        // データ検証
+        function validateData() {
+            missingShifts = [];
+            
+            // 調理場データの検証
+            if (cookData.scheduleData) {
+                Object.keys(cookData.scheduleData).forEach(key => {
+                    const shiftValue = cookData.scheduleData[key];
+                    if (!shiftValue || shiftValue.trim() === '') {
+                        // キーから日付を抽出（例: "1752319905802-07-01" → "07-01"）
+                        const dateMatch = key.match(/-(\d{2}-\d{2})$/);
+                        const date = dateMatch ? dateMatch[1] : key;
+                        
+                        missingShifts.push({
+                            department: '調理場',
+                            date: date,
+                            shift: key,
+                            value: shiftValue || ''
+                        });
+                    }
+                });
+            }
+
+            // 栄養士データの検証
+            if (nutritionData.scheduleData) {
+                Object.keys(nutritionData.scheduleData).forEach(key => {
+                    const shiftValue = nutritionData.scheduleData[key];
+                    if (!shiftValue || shiftValue.trim() === '') {
+                        // キーから日付を抽出（例: "26-07-01" → "07-01"）
+                        const dateMatch = key.match(/-(\d{2}-\d{2})$/);
+                        const date = dateMatch ? dateMatch[1] : key;
+                        
+                        missingShifts.push({
+                            department: '栄養士',
+                            date: date,
+                            shift: key,
+                            value: shiftValue || ''
+                        });
+                    }
+                });
+            }
+
+            if (missingShifts.length > 0) {
+                const missingDates = [...new Set(missingShifts.map(item => item.date))];
+                showStatus('warning', `未入力のシフトがあります。日付: ${missingDates.join(', ')}`);
+                console.log('未入力シフト:', missingShifts);
+            } else {
+                showStatus('success', 'すべてのシフトが入力されています。');
+            }
+        }
+
+        // データプレビュー表示
+        function showDataPreview() {
+            const previewSection = document.getElementById('data-preview-section');
+            const previewDiv = document.getElementById('data-preview');
+            
+            let previewHTML = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+            
+            // 調理場データプレビュー
+            if (cookData) {
+                previewHTML += `
+                    <div>
+                        <h4 class="font-medium text-gray-900 mb-2">調理場データ</h4>
+                        <div class="text-sm text-gray-600">
+                            <p>シフト数: ${cookData.scheduleData ? Object.keys(cookData.scheduleData).length : 0}</p>
+                            <p>従業員数: ${cookData.employees ? cookData.employees.length : 0}</p>
+                            <p>最終更新: ${cookData.lastUpdated ? new Date(cookData.lastUpdated).toLocaleString('ja-JP') : '不明'}</p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // 栄養士データプレビュー
+            if (nutritionData) {
+                previewHTML += `
+                    <div>
+                        <h4 class="font-medium text-gray-900 mb-2">栄養士データ</h4>
+                        <div class="text-sm text-gray-600">
+                            <p>シフト数: ${nutritionData.scheduleData ? Object.keys(nutritionData.scheduleData).length : 0}</p>
+                            <p>従業員数: ${nutritionData.employees ? nutritionData.employees.length : 0}</p>
+                            <p>最終更新: ${nutritionData.lastUpdated ? new Date(nutritionData.lastUpdated).toLocaleString('ja-JP') : '不明'}</p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            previewHTML += '</div>';
+            
+            if (missingShifts.length > 0) {
+                previewHTML += `
+                    <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <h4 class="text-sm font-medium text-yellow-800 mb-2">未入力シフト</h4>
+                        <div class="text-xs text-yellow-700">
+                            <p>未入力シフト数: ${missingShifts.length}</p>
+                            <p>未入力日付: ${[...new Set(missingShifts.map(item => item.date))].join(', ')}</p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            previewDiv.innerHTML = previewHTML;
+            previewSection.style.display = 'block';
+        }
+
+        // エクセル出力
+        function exportToExcel() {
+            if (!cookData || !nutritionData) {
+                showStatus('error', 'データが読み込まれていません。');
+                return;
+            }
+
+            const btn = document.getElementById('excel-export-btn');
+            const btnText = document.getElementById('excel-btn-text');
+            const loading = document.getElementById('excel-loading');
+            
+            btn.disabled = true;
+            btnText.textContent = '出力中...';
+            loading.style.display = 'inline-block';
+
+            try {
+                // 未入力シフトがある場合の確認
+                if (missingShifts.length > 0) {
+                    const missingDates = [...new Set(missingShifts.map(item => item.date))];
+                    const confirmMessage = `未入力のシフトがあります。\n日付: ${missingDates.join(', ')}\n\n処理を継続しますか？\n継続する場合、エクセルは空欄で出力されます。`;
+                    
+                    if (!confirm(confirmMessage)) {
+                        btn.disabled = false;
+                        btnText.textContent = 'エクセル出力';
+                        loading.style.display = 'none';
+                        return;
+                    }
+                }
+
+                // ワークブック作成
+                const wb = XLSX.utils.book_new();
+
+                // 調理場シート作成
+                const cookSheetData = convertToSheetData(cookData, '調理場');
+                const cookWs = XLSX.utils.aoa_to_sheet(cookSheetData);
+                
+                // セルスタイルを適用
+                applyExcelStyles(cookWs, cookSheetData);
+                
+                XLSX.utils.book_append_sheet(wb, cookWs, '調理場シフト');
+
+                // 栄養士シート作成
+                const nutritionSheetData = convertToSheetData(nutritionData, '栄養士');
+                const nutritionWs = XLSX.utils.aoa_to_sheet(nutritionSheetData);
+                
+                // セルスタイルを適用
+                applyExcelStyles(nutritionWs, nutritionSheetData);
+                
+                XLSX.utils.book_append_sheet(wb, nutritionWs, '栄養士シフト');
+
+                // ファイル名生成
+                const now = new Date();
+                const fileName = `統合シフト表_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}.xlsx`;
+
+                // ダウンロード
+                XLSX.writeFile(wb, fileName);
+                
+                showStatus('success', `エクセルファイル「${fileName}」を出力しました。`);
+                console.log('エクセル出力完了:', fileName);
+
+            } catch (error) {
+                showStatus('error', `エクセル出力に失敗しました: ${error.message}`);
+                console.error('エクセル出力エラー:', error);
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = 'エクセル出力';
+                loading.style.display = 'none';
+            }
+        }
+
+        // CSV出力
+        function exportToCSV() {
+            if (!cookData || !nutritionData) {
+                showStatus('error', 'データが読み込まれていません。');
+                return;
+            }
+
+            const btn = document.getElementById('csv-export-btn');
+            const btnText = document.getElementById('csv-btn-text');
+            const loading = document.getElementById('csv-loading');
+            
+            btn.disabled = true;
+            btnText.textContent = '出力中...';
+            loading.style.display = 'inline-block';
+
+            try {
+                // 未入力シフトがある場合の確認
+                if (missingShifts.length > 0) {
+                    const missingDates = [...new Set(missingShifts.map(item => item.date))];
+                    const confirmMessage = `未入力のシフトがあります。\n日付: ${missingDates.join(', ')}\n\n処理を継続しますか？\n継続する場合、未入力部分は除外して出力されます。`;
+                    
+                    if (!confirm(confirmMessage)) {
+                        btn.disabled = false;
+                        btnText.textContent = 'CSV出力';
+                        loading.style.display = 'none';
+                        return;
+                    }
+                }
+
+                // 統合データ作成
+                const integratedData = createIntegratedData();
+
+                // CSVデータ作成
+                const csvContent = convertToCSV(integratedData);
+
+                // BOMを追加してUTF-8エンコーディングを明示
+                const BOM = '\uFEFF';
+                const csvWithBOM = BOM + csvContent;
+
+                // ファイル名生成
+                const now = new Date();
+                const fileName = `統合シフト表_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}.csv`;
+
+                // ダウンロード
+                const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = fileName;
+                link.click();
+                
+                showStatus('success', `CSVファイル「${fileName}」を出力しました。`);
+                console.log('CSV出力完了:', fileName);
+
+            } catch (error) {
+                showStatus('error', `CSV出力に失敗しました: ${error.message}`);
+                console.error('CSV出力エラー:', error);
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = 'CSV出力';
+                loading.style.display = 'none';
+            }
+        }
+
+        // HTML出力
+        function exportToHTML() {
+            if (!cookData || !nutritionData) {
+                showStatus('error', 'データが読み込まれていません。');
+                return;
+            }
+
+            const btn = document.getElementById('html-export-btn');
+            const btnText = document.getElementById('html-btn-text');
+            const loading = document.getElementById('html-loading');
+            
+            btn.disabled = true;
+            btnText.textContent = '出力中...';
+            loading.style.display = 'inline-block';
+
+            try {
+                // 未入力シフトがある場合の確認
+                if (missingShifts.length > 0) {
+                    const missingDates = [...new Set(missingShifts.map(item => item.date))];
+                    const confirmMessage = `未入力のシフトがあります。\n日付: ${missingDates.join(', ')}\n\n処理を継続しますか？\n継続する場合、未入力部分は空欄で出力されます。`;
+                    
+                    if (!confirm(confirmMessage)) {
+                        btn.disabled = false;
+                        btnText.textContent = 'HTML出力';
+                        loading.style.display = 'none';
+                        return;
+                    }
+                }
+
+                // HTML用の統合データ作成
+                const integratedData = createHTMLIntegratedData();
+
+                // HTMLデータ作成
+                const htmlContent = createPrintHTML(integratedData);
+
+                // ファイル名生成
+                const now = new Date();
+                const fileName = `統合シフト表_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}.html`;
+
+                // ダウンロード
+                const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = fileName;
+                link.click();
+                
+                showStatus('success', `印刷用HTMLファイル「${fileName}」を出力しました。`);
+                console.log('HTML出力完了:', fileName);
+
+            } catch (error) {
+                showStatus('error', `HTML出力に失敗しました: ${error.message}`);
+                console.error('HTML出力エラー:', error);
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = 'HTML出力';
+                loading.style.display = 'none';
+            }
+        }
+
+        // 調理場HTML出力
+        function exportCookHTML() {
+            if (!cookData) {
+                showStatus('error', '調理場データが読み込まれていません。');
+                return;
+            }
+
+            const btn = document.getElementById('cook-html-export-btn');
+            const btnText = document.getElementById('cook-html-btn-text');
+            const loading = document.getElementById('cook-html-loading');
+            
+            btn.disabled = true;
+            btnText.textContent = '出力中...';
+            loading.style.display = 'inline-block';
+
+            try {
+                // HTML用の調理場データ作成
+                const cookDataForHTML = createCookHTMLData();
+
+                // HTMLデータ作成
+                const htmlContent = createCookPrintHTML(cookDataForHTML);
+
+                // ファイル名生成
+                const now = new Date();
+                const fileName = `調理場シフト表_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}.html`;
+
+                // ダウンロード
+                const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = fileName;
+                link.click();
+                
+                showStatus('success', `調理場HTMLファイル「${fileName}」を出力しました。`);
+                console.log('調理場HTML出力完了:', fileName);
+
+            } catch (error) {
+                showStatus('error', `調理場HTML出力に失敗しました: ${error.message}`);
+                console.error('調理場HTML出力エラー:', error);
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = '調理場HTML出力';
+                loading.style.display = 'none';
+            }
+        }
+
+        // 栄養士HTML出力
+        function exportNutritionHTML() {
+            if (!nutritionData) {
+                showStatus('error', '栄養士データが読み込まれていません。');
+                return;
+            }
+
+            const btn = document.getElementById('nutrition-html-export-btn');
+            const btnText = document.getElementById('nutrition-html-btn-text');
+            const loading = document.getElementById('nutrition-html-loading');
+            
+            btn.disabled = true;
+            btnText.textContent = '出力中...';
+            loading.style.display = 'inline-block';
+
+            try {
+                // HTML用の栄養士データ作成
+                const nutritionDataForHTML = createNutritionHTMLData();
+
+                // HTMLデータ作成
+                const htmlContent = createNutritionPrintHTML(nutritionDataForHTML);
+
+                // ファイル名生成
+                const now = new Date();
+                const fileName = `栄養士シフト表_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}.html`;
+
+                // ダウンロード
+                const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = fileName;
+                link.click();
+                
+                showStatus('success', `栄養士HTMLファイル「${fileName}」を出力しました。`);
+                console.log('栄養士HTML出力完了:', fileName);
+
+            } catch (error) {
+                showStatus('error', `栄養士HTML出力に失敗しました: ${error.message}`);
+                console.error('栄養士HTML出力エラー:', error);
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = '栄養士HTML出力';
+                loading.style.display = 'none';
+            }
+        }
+
+        // 印刷用HTML作成
+        function createPrintHTML(integratedData) {
+            const month = getMonthFromData(integratedData.dates);
+            const year = getYearFromData();
+            
+            let html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${year}年${month}月 統合シフト表</title>
+    <style>
+        @media print {
+            body { margin: 0; padding: 20px; }
+            .no-print { display: none !important; }
+            .page-break { page-break-before: always; }
+            table { page-break-inside: avoid; }
+        }
+        
+        body {
+            font-family: 'MS Gothic', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: white;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        
+        .title {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        
+        .subtitle {
+            font-size: 18px;
+            color: #666;
+            margin: 5px 0 0 0;
+            font-weight: bold;
+        }
+        
+        .shift-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .shift-table th,
+        .shift-table td {
+            border: 2px solid #333;
+            padding: 12px 8px;
+            text-align: center;
+            vertical-align: middle;
+            font-weight: bold;
+        }
+        
+        .shift-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .employee-name {
+            font-weight: bold;
+            background-color: #e8f4fd;
+            min-width: 100px;
+            font-size: 18px;
+        }
+        
+        .employee-header {
+            background-color: #e8f4fd;
+            font-weight: bold;
+            font-size: 18px;
+            border: 2px solid #333;
+        }
+        
+        .date-header {
+            background-color: #f0f0f0;
+            font-size: 16px;
+            font-weight: bold;
+            border: 2px solid #333;
+        }
+        
+        .weekday-header {
+            background-color: #f8f8f8;
+            font-size: 14px;
+            font-weight: bold;
+            border: 2px solid #333;
+        }
+        
+        .weekend {
+            background-color: #fff0f0;
+        }
+        
+        .weekday {
+            background-color: #f0fff0;
+        }
+        
+        .shift-cell {
+            min-width: 80px;
+            height: 50px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 16px;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+            font-weight: bold;
+        }
+        
+        .print-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .print-button:hover {
+            background-color: #0056b3;
+        }
+        
+        @media screen {
+            .print-button { display: block; }
+        }
+        
+        @media print {
+            .print-button { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <button class="print-button no-print" onclick="window.print()">印刷</button>
+    
+    <div class="header">
+        <h1 class="title">${year}年${month}月 統合シフト表</h1>
+        <p class="subtitle">調理場・栄養士統合データ</p>
+    </div>
+    
+    <table class="shift-table">
+        <thead>
+            <tr>
+                <th class="employee-header">従業員</th>`;
+
+            // 日付ヘッダーを追加
+            integratedData.dates.forEach(date => {
+                const day = getDayOnly(date);
+                html += `
+                <th class="date-header">
+                    ${day}
+                </th>`;
+            });
+
+            html += `
+            </tr>
+            <tr>
+                <th class="employee-header">従業員</th>`;
+
+            // 曜日ヘッダーを追加
+            integratedData.dates.forEach(date => {
+                const weekday = getWeekday(date);
+                const isWeekend = weekday === '土' || weekday === '日';
+                const cellClass = isWeekend ? 'weekend' : 'weekday';
+                
+                html += `
+                <th class="weekday-header ${cellClass}">
+                    ${weekday}
+                </th>`;
+            });
+
+            html += `
+            </tr>
+        </thead>
+        <tbody>`;
+
+            // 従業員データを追加
+            integratedData.employees.forEach(employee => {
+                html += `
+            <tr>
+                <td class="employee-name">${employee.name}</td>`;
+                
+                integratedData.dates.forEach(date => {
+                    const shift = integratedData.schedule.find(s => 
+                        s.employeeId === employee.id && s.date === date
+                    );
+                    const shiftName = shift ? shift.shiftName : '';
+                    const isWeekend = getWeekday(date) === '土' || getWeekday(date) === '日';
+                    const cellClass = isWeekend ? 'weekend' : 'weekday';
+                    
+                    html += `
+                <td class="shift-cell ${cellClass}">${shiftName}</td>`;
+                });
+
+                html += `
+            </tr>`;
+            });
+
+            html += `
+        </tbody>
+    </table>
+    
+    <div class="footer">
+        <p>印刷日時: ${new Date().toLocaleString('ja-JP')}</p>
+        <p>シフトデータ統合・エクスポートシステム</p>
+    </div>
+</body>
+</html>`;
+
+            return html;
+        }
+
+        // 調理場印刷用HTML作成
+        function createCookPrintHTML(integratedData) {
+            const month = getMonthFromData(integratedData.dates);
+            const year = getYearFromData();
+            
+            let html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${year}年${month}月 調理場シフト表</title>
+    <style>
+        @media print {
+            body { margin: 0; padding: 20px; }
+            .no-print { display: none !important; }
+            .page-break { page-break-before: always; }
+            table { page-break-inside: avoid; }
+        }
+        
+        body {
+            font-family: 'MS Gothic', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: white;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        
+        .title {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        
+        .subtitle {
+            font-size: 18px;
+            color: #666;
+            margin: 5px 0 0 0;
+            font-weight: bold;
+        }
+        
+        .shift-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .shift-table th,
+        .shift-table td {
+            border: 2px solid #333;
+            padding: 12px 8px;
+            text-align: center;
+            vertical-align: middle;
+            font-weight: bold;
+        }
+        
+        .shift-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .employee-name {
+            font-weight: bold;
+            background-color: #e8f4fd;
+            min-width: 100px;
+            font-size: 18px;
+        }
+        
+        .employee-header {
+            background-color: #e8f4fd;
+            font-weight: bold;
+            font-size: 18px;
+            border: 2px solid #333;
+        }
+        
+        .date-header {
+            background-color: #f0f0f0;
+            font-size: 16px;
+            font-weight: bold;
+            border: 2px solid #333;
+        }
+        
+        .weekday-header {
+            background-color: #f8f8f8;
+            font-size: 14px;
+            font-weight: bold;
+            border: 2px solid #333;
+        }
+        
+        .weekend {
+            background-color: #fff0f0;
+        }
+        
+        .weekday {
+            background-color: #f0fff0;
+        }
+        
+        .shift-cell {
+            min-width: 80px;
+            height: 50px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 16px;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+            font-weight: bold;
+        }
+        
+        .print-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .print-button:hover {
+            background-color: #0056b3;
+        }
+        
+        @media screen {
+            .print-button { display: block; }
+        }
+        
+        @media print {
+            .print-button { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <button class="print-button no-print" onclick="window.print()">印刷</button>
+    
+    <div class="header">
+        <h1 class="title">${year}年${month}月 調理場シフト表</h1>
+        <p class="subtitle">調理場シフトデータ</p>
+    </div>
+    
+    <table class="shift-table">
+        <thead>
+            <tr>
+                <th class="employee-header">従業員</th>`;
+
+            // 日付ヘッダーを追加
+            integratedData.dates.forEach(date => {
+                const day = getDayOnly(date);
+                html += `
+                <th class="date-header">
+                    ${day}
+                </th>`;
+            });
+
+            html += `
+            </tr>
+            <tr>
+                <th class="employee-header">従業員</th>`;
+
+            // 曜日ヘッダーを追加
+            integratedData.dates.forEach(date => {
+                const weekday = getWeekday(date);
+                const isWeekend = weekday === '土' || weekday === '日';
+                const cellClass = isWeekend ? 'weekend' : 'weekday';
+                
+                html += `
+                <th class="weekday-header ${cellClass}">
+                    ${weekday}
+                </th>`;
+            });
+
+            html += `
+            </tr>
+        </thead>
+        <tbody>`;
+
+            // 従業員データを追加
+            integratedData.employees.forEach(employee => {
+                html += `
+            <tr>
+                <td class="employee-name">${employee.name}</td>`;
+                
+                integratedData.dates.forEach(date => {
+                    const shift = integratedData.schedule.find(s => 
+                        s.employeeId === employee.id && s.date === date
+                    );
+                    const shiftName = shift ? shift.shiftName : '';
+                    const isWeekend = getWeekday(date) === '土' || getWeekday(date) === '日';
+                    const cellClass = isWeekend ? 'weekend' : 'weekday';
+                    
+                    html += `
+                <td class="shift-cell ${cellClass}">${shiftName}</td>`;
+                });
+
+                html += `
+            </tr>`;
+            });
+
+            html += `
+        </tbody>
+    </table>
+    
+    <div class="footer">
+        <p>印刷日時: ${new Date().toLocaleString('ja-JP')}</p>
+        <p>シフトデータ統合・エクスポートシステム</p>
+    </div>
+</body>
+</html>`;
+
+            return html;
+        }
+
+        // 栄養士印刷用HTML作成
+        function createNutritionPrintHTML(integratedData) {
+            const month = getMonthFromData(integratedData.dates);
+            const year = getYearFromData();
+            
+            let html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${year}年${month}月 栄養士シフト表</title>
+    <style>
+        @media print {
+            body { margin: 0; padding: 20px; }
+            .no-print { display: none !important; }
+            .page-break { page-break-before: always; }
+            table { page-break-inside: avoid; }
+        }
+        
+        body {
+            font-family: 'MS Gothic', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: white;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        
+        .title {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        
+        .subtitle {
+            font-size: 18px;
+            color: #666;
+            margin: 5px 0 0 0;
+            font-weight: bold;
+        }
+        
+        .shift-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .shift-table th,
+        .shift-table td {
+            border: 2px solid #333;
+            padding: 12px 8px;
+            text-align: center;
+            vertical-align: middle;
+            font-weight: bold;
+        }
+        
+        .shift-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .employee-name {
+            font-weight: bold;
+            background-color: #e8f4fd;
+            min-width: 100px;
+            font-size: 18px;
+        }
+        
+        .employee-header {
+            background-color: #e8f4fd;
+            font-weight: bold;
+            font-size: 18px;
+            border: 2px solid #333;
+        }
+        
+        .date-header {
+            background-color: #f0f0f0;
+            font-size: 16px;
+            font-weight: bold;
+            border: 2px solid #333;
+        }
+        
+        .weekday-header {
+            background-color: #f8f8f8;
+            font-size: 14px;
+            font-weight: bold;
+            border: 2px solid #333;
+        }
+        
+        .weekend {
+            background-color: #fff0f0;
+        }
+        
+        .weekday {
+            background-color: #f0fff0;
+        }
+        
+        .shift-cell {
+            min-width: 80px;
+            height: 50px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 16px;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+            font-weight: bold;
+        }
+        
+        .print-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .print-button:hover {
+            background-color: #0056b3;
+        }
+        
+        @media screen {
+            .print-button { display: block; }
+        }
+        
+        @media print {
+            .print-button { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <button class="print-button no-print" onclick="window.print()">印刷</button>
+    
+    <div class="header">
+        <h1 class="title">${year}年${month}月 栄養士シフト表</h1>
+        <p class="subtitle">栄養士シフトデータ</p>
+    </div>
+    
+    <table class="shift-table">
+        <thead>
+            <tr>
+                <th class="employee-header">従業員</th>`;
+
+            // 日付ヘッダーを追加
+            integratedData.dates.forEach(date => {
+                const day = getDayOnly(date);
+                html += `
+                <th class="date-header">
+                    ${day}
+                </th>`;
+            });
+
+            html += `
+            </tr>
+            <tr>
+                <th class="employee-header">従業員</th>`;
+
+            // 曜日ヘッダーを追加
+            integratedData.dates.forEach(date => {
+                const weekday = getWeekday(date);
+                const isWeekend = weekday === '土' || weekday === '日';
+                const cellClass = isWeekend ? 'weekend' : 'weekday';
+                
+                html += `
+                <th class="weekday-header ${cellClass}">
+                    ${weekday}
+                </th>`;
+            });
+
+            html += `
+            </tr>
+        </thead>
+        <tbody>`;
+
+            // 従業員データを追加
+            integratedData.employees.forEach(employee => {
+                html += `
+            <tr>
+                <td class="employee-name">${employee.name}</td>`;
+                
+                integratedData.dates.forEach(date => {
+                    const shift = integratedData.schedule.find(s => 
+                        s.employeeId === employee.id && s.date === date
+                    );
+                    const shiftName = shift ? shift.shiftName : '';
+                    const isWeekend = getWeekday(date) === '土' || getWeekday(date) === '日';
+                    const cellClass = isWeekend ? 'weekend' : 'weekday';
+                    
+                    html += `
+                <td class="shift-cell ${cellClass}">${shiftName}</td>`;
+                });
+
+                html += `
+            </tr>`;
+            });
+
+            html += `
+        </tbody>
+    </table>
+    
+    <div class="footer">
+        <p>印刷日時: ${new Date().toLocaleString('ja-JP')}</p>
+        <p>シフトデータ統合・エクスポートシステム</p>
+    </div>
+</body>
+</html>`;
+
+            return html;
+        }
+
+        // シートデータ変換
+        function convertToSheetData(data, department) {
+            const sheetData = [];
+            
+            // 従業員IDと日付を整理
+            const employeeDates = {};
+            const allDates = new Set();
+            
+            if (data.scheduleData) {
+                Object.keys(data.scheduleData).forEach(key => {
+                    const shiftValue = data.scheduleData[key];
+                    
+                    // キーから従業員IDと日付を抽出（修正版）
+                    // 例: "1752319905802-07-01" → employeeId: "1752319905802", date: "07-01"
+                    // 例: "26-07-01" → employeeId: "26", date: "07-01"
+                    const keyParts = key.split('-');
+                    if (keyParts.length >= 2) {
+                        // 最後の2つが月-日の形式かチェック
+                        const lastTwo = keyParts.slice(-2);
+                        const monthDayPattern = /^\d{2}-\d{2}$/;
+                        
+                        if (lastTwo.join('-').match(monthDayPattern)) {
+                            // 最後の2つが月-日の場合
+                            const employeeId = keyParts.slice(0, -2).join('-');
+                            const date = lastTwo.join('-');
+                            
+                            if (!employeeDates[employeeId]) {
+                                employeeDates[employeeId] = {};
+                            }
+                            employeeDates[employeeId][date] = shiftValue;
+                            allDates.add(date);
+                        } else {
+                            // 従業員IDが短い場合（例: "26-07-01"）
+                            const employeeId = keyParts[0];
+                            const date = keyParts.slice(1).join('-');
+                            
+                            if (!employeeDates[employeeId]) {
+                                employeeDates[employeeId] = {};
+                            }
+                            employeeDates[employeeId][date] = shiftValue;
+                            allDates.add(date);
+                        }
+                    }
+                });
+            }
+            
+            // 日付をソート
+            const sortedDates = Array.from(allDates).sort();
+            
+            // タイトル行（動的に年月を判定）
+            const month = getMonthFromData(sortedDates);
+            const year = getYearFromData();
+            sheetData.push([`${year}年${month}月 シフト表`]);
+            sheetData.push([]); // 空行
+            
+            // 従業員データからID-氏名マッピングを作成
+            const employeeMapping = {};
+            if (data.employees) {
+                data.employees.forEach(emp => {
+                    employeeMapping[emp.id] = emp.name;
+                });
+            }
+            
+            // シフトデータからID-シフト名マッピングを作成
+            const shiftMapping = {};
+            if (data.shifts) {
+                data.shifts.forEach(shift => {
+                    shiftMapping[shift.id] = shift.name;
+                });
+            }
+            
+            // 曜日行（一番上のみ）
+            const weekdayRow = [''];
+            sortedDates.forEach(date => {
+                const weekday = getWeekday(date);
+                weekdayRow.push(weekday);
+            });
+            sheetData.push(weekdayRow);
+            
+            // データ行作成（新しい形式）
+            Object.keys(employeeDates).forEach(employeeId => {
+                const employeeName = employeeMapping[employeeId] || employeeId;
+                
+                // 日付行（氏名なし）
+                const dateRow = [''];
+                sortedDates.forEach(date => {
+                    const day = getDayOnly(date);
+                    dateRow.push(day);
+                });
+                sheetData.push(dateRow);
+                
+                // 空欄行
+                const emptyRow = [''];
+                sortedDates.forEach(() => {
+                    emptyRow.push('');
+                });
+                sheetData.push(emptyRow);
+                
+                // シフト行（氏名付き）
+                const shiftRow = [employeeName];
+                sortedDates.forEach(date => {
+                    const shiftId = employeeDates[employeeId][date] || '';
+                    // シフトIDをシフト名に変換
+                    const shiftName = shiftMapping[shiftId] || shiftId;
+                    shiftRow.push(shiftName);
+                });
+                sheetData.push(shiftRow);
+                
+                // 空欄行
+                const emptyRow2 = [''];
+                sortedDates.forEach(() => {
+                    emptyRow2.push('');
+                });
+                sheetData.push(emptyRow2);
+            });
+            
+            return sheetData;
+        }
+
+        // 日付から日のみを取得
+        function getDayOnly(dateString) {
+            const parts = dateString.split('-');
+            if (parts.length === 2) {
+                return parts[1]; // 日のみを返す
+            }
+            return dateString;
+        }
+
+        // データから月を判定
+        function getMonthFromData(dates) {
+            if (dates.length > 0) {
+                const firstDate = dates[0];
+                const parts = firstDate.split('-');
+                if (parts.length === 2) {
+                    const month = parseInt(parts[0]);
+                    return month;
+                }
+            }
+            return 7; // デフォルトは7月
+        }
+
+        // データから年を判定（ファイル名から推測）
+        function getYearFromData() {
+            // 現在の年を取得（必要に応じてファイル名から判定可能）
+            return new Date().getFullYear();
+        }
+
+        // 曜日を取得
+        function getWeekday(dateString) {
+            const parts = dateString.split('-');
+            if (parts.length === 2) {
+                const month = parseInt(parts[0]);
+                const day = parseInt(parts[1]);
+                const date = new Date(2025, month - 1, day);
+                const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+                return weekdays[date.getDay()];
+            }
+            return '';
+        }
+
+        // 日付をエクセル用にフォーマット
+        function formatDateForExcel(dateString) {
+            const parts = dateString.split('-');
+            if (parts.length === 2) {
+                const month = parseInt(parts[0]);
+                const day = parseInt(parts[1]);
+                return `${month}/${day}`;
+            }
+            return dateString;
+        }
+
+        // エクセルスタイルを適用
+        function applyExcelStyles(worksheet, data) {
+            // タイトル行のスタイル
+            if (data.length > 0) {
+                const titleCell = XLSX.utils.encode_cell({r: 0, c: 0});
+                worksheet[titleCell].s = {
+                    font: { bold: true, size: 24, name: 'MS Gothic' },
+                    alignment: { horizontal: 'center', vertical: 'center' },
+                    border: {
+                        top: { style: 'thin' },
+                        bottom: { style: 'thin' },
+                        left: { style: 'thin' },
+                        right: { style: 'thin' }
+                    }
+                };
+            }
+
+            // 列幅と行高を設定
+            worksheet['!cols'] = [];
+            worksheet['!rows'] = [];
+            for (let i = 0; i < 50; i++) {
+                worksheet['!cols'][i] = { width: 12 };
+            }
+            for (let i = 0; i < 100; i++) {
+                worksheet['!rows'][i] = { hpt: 25 };
+            }
+
+            // 全セルにデフォルトスタイル（中央・24pt・太字）を適用
+            for (let row = 0; row < data.length; row++) {
+                if (data[row] && data[row].length > 0) {
+                    for (let col = 0; col < data[row].length; col++) {
+                        const cell = XLSX.utils.encode_cell({r: row, c: col});
+                        if (!worksheet[cell]) continue;
+                        worksheet[cell].s = {
+                            font: { bold: true, size: 24, name: 'MS Gothic' },
+                            alignment: { horizontal: 'center', vertical: 'center' },
+                            border: {
+                                top: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                left: { style: 'thin' },
+                                right: { style: 'thin' }
+                            }
+                        };
+                    }
+                }
+            }
+
+            // 曜日行（3行目: index 2）
+            if (data.length > 2) {
+                for (let col = 0; col < data[2].length; col++) {
+                    const cell = XLSX.utils.encode_cell({r: 2, c: col});
+                    if (!worksheet[cell]) continue;
+                    // 土曜・日曜・祭日色分け
+                    let fontColor = undefined;
+                    if (col > 0) {
+                        if (isSunday(2, col, data) || isHoliday(2, col, data)) {
+                            fontColor = { rgb: 'FF0000' };
+                        } else if (isSaturday(2, col, data)) {
+                            fontColor = { rgb: '0000FF' };
+                        }
+                    }
+                    worksheet[cell].s = {
+                        font: { bold: true, size: 24, name: 'MS Gothic', ...(fontColor ? { color: fontColor } : {}) },
+                        alignment: { horizontal: 'center', vertical: 'center' },
+                        border: {
+                            top: { style: 'thin' },
+                            bottom: { style: 'thin' },
+                            left: { style: 'thin' },
+                            right: { style: 'thin' }
+                        }
+                    };
+                }
+            }
+
+            // 日付行（4行目以降、氏名なし行）
+            for (let row = 3; row < data.length; row += 4) {
+                if (data[row] && data[row].length > 0) {
+                    for (let col = 0; col < data[row].length; col++) {
+                        const cell = XLSX.utils.encode_cell({r: row, c: col});
+                        if (!worksheet[cell]) continue;
+                        // 土曜・日曜・祭日色分け
+                        let fontColor = undefined;
+                        if (col > 0) {
+                            if (isSunday(row, col, data) || isHoliday(row, col, data)) {
+                                fontColor = { rgb: 'FF0000' };
+                            } else if (isSaturday(row, col, data)) {
+                                fontColor = { rgb: '0000FF' };
+                            }
+                        }
+                        worksheet[cell].s = {
+                            font: { bold: true, size: 24, name: 'MS Gothic', ...(fontColor ? { color: fontColor } : {}) },
+                            alignment: { horizontal: 'center', vertical: 'center' },
+                            border: {
+                                top: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                left: { style: 'thin' },
+                                right: { style: 'thin' }
+                            }
+                        };
+                    }
+                }
+            }
+
+            // 氏名セル（シフト行の1列目）
+            for (let row = 5; row < data.length; row += 4) {
+                if (data[row] && data[row].length > 0) {
+                    const cell = XLSX.utils.encode_cell({r: row, c: 0});
+                    if (!worksheet[cell]) continue;
+                    worksheet[cell].s = {
+                        font: { bold: true, size: 24, name: 'MS Gothic' },
+                        alignment: { horizontal: 'center', vertical: 'center' },
+                        border: {
+                            top: { style: 'thin' },
+                            bottom: { style: 'thin' },
+                            left: { style: 'thin' },
+                            right: { style: 'thin' }
+                        }
+                    };
+                }
+            }
+
+            // シフトデータセル
+            for (let row = 5; row < data.length; row += 4) {
+                if (data[row] && data[row].length > 0) {
+                    for (let col = 1; col < data[row].length; col++) {
+                        const cell = XLSX.utils.encode_cell({r: row, c: col});
+                        if (!worksheet[cell]) continue;
+                        const shiftValue = data[row][col];
+                        // "休"は赤色
+                        let fontColor = undefined;
+                        if (shiftValue === '休') {
+                            fontColor = { rgb: 'FF0000' };
+                        }
+                        worksheet[cell].s = {
+                            font: { bold: true, size: 24, name: 'MS Gothic', ...(fontColor ? { color: fontColor } : {}) },
+                            alignment: { horizontal: 'center', vertical: 'center' },
+                            border: {
+                                top: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                left: { style: 'thin' },
+                                right: { style: 'thin' }
+                            }
+                        };
+                    }
+                }
+            }
+        }
+
+        // 日曜日かどうかを判定
+        function isSunday(row, col, data) {
+            if (data[row] && data[row][col]) {
+                const day = parseInt(data[row][col]);
+                // 動的に月を判定して日曜日を計算
+                const month = getMonthFromData(data[2] || []); // 最初の日付行から月を取得
+                const sundays = getSundays(month);
+                return sundays.includes(day);
+            }
+            return false;
+        }
+
+        // 土曜日かどうかを判定
+        function isSaturday(row, col, data) {
+            if (data[row] && data[row][col]) {
+                const day = parseInt(data[row][col]);
+                // 動的に月を判定して土曜日を計算
+                const month = getMonthFromData(data[2] || []); // 最初の日付行から月を取得
+                const saturdays = getSaturdays(month);
+                return saturdays.includes(day);
+            }
+            return false;
+        }
+
+        // 指定月の日曜日を取得
+        function getSundays(month) {
+            // 動的に日曜日を計算（2025-2030年対応）
+            return getWeekdaysInMonth(month, 0); // 0 = 日曜日
+        }
+
+        // 指定月の土曜日を取得
+        function getSaturdays(month) {
+            // 動的に土曜日を計算（2025-2030年対応）
+            return getWeekdaysInMonth(month, 6); // 6 = 土曜日
+        }
+
+        // 指定月の特定曜日を動的に計算
+        function getWeekdaysInMonth(month, weekday) {
+            const sundays = [];
+            const year = getYearFromData(); // 動的に年を取得
+            
+            // 月の最初の日を取得
+            const firstDay = new Date(year, month - 1, 1);
+            
+            // 月の最初の曜日を取得（0=日曜日, 1=月曜日, ..., 6=土曜日）
+            const firstWeekday = firstDay.getDay();
+            
+            // 最初の該当曜日までの日数を計算
+            let daysToAdd = (weekday - firstWeekday + 7) % 7;
+            if (daysToAdd === 0) daysToAdd = 7;
+            
+            // 最初の該当曜日
+            let currentDate = new Date(year, month - 1, 1 + daysToAdd);
+            
+            // 月の最後の日を取得
+            const lastDay = new Date(year, month, 0);
+            
+            // 該当曜日をすべて取得
+            while (currentDate <= lastDay) {
+                sundays.push(currentDate.getDate());
+                currentDate.setDate(currentDate.getDate() + 7);
+            }
+            
+            return sundays;
+        }
+
+        // 祭日かどうかを判定
+        function isHoliday(row, col, data) {
+            if (data[row] && data[row][col]) {
+                const day = parseInt(data[row][col]);
+                const month = getMonthFromData(data[2] || []); // 最初の日付行から月を取得
+                const year = getYearFromData();
+                
+                // 2025-2030年の祝日リスト
+                const holidays = getHolidaysForYear(year);
+                
+                // 土日以外の祝日かチェック
+                const isHoliday = holidays.some(holiday => 
+                    holiday.month === month && holiday.day === day
+                );
+                
+                if (isHoliday) {
+                    // 土日でないことを確認
+                    const date = new Date(year, month - 1, day);
+                    const weekday = date.getDay();
+                    return weekday !== 0 && weekday !== 6; // 日曜日(0)と土曜日(6)以外
+                }
+            }
+            return false;
+        }
+
+        // 年別の祝日リストを取得
+        function getHolidaysForYear(year) {
+            const baseHolidays = [
+                { month: 1, day: 1 },   // 元日
+                { month: 1, day: 13 },  // 成人の日（第2月曜日）
+                { month: 2, day: 11 },  // 建国記念の日
+                { month: 2, day: 23 },  // 天皇誕生日
+                { month: 3, day: 21 },  // 春分の日（変動あり）
+                { month: 4, day: 29 },  // 昭和の日
+                { month: 5, day: 3 },   // 憲法記念日
+                { month: 5, day: 4 },   // みどりの日
+                { month: 5, day: 5 },   // こどもの日
+                { month: 7, day: 21 },  // 海の日（第3月曜日）
+                { month: 8, day: 11 },  // 山の日
+                { month: 9, day: 15 },  // 敬老の日（第3月曜日）
+                { month: 9, day: 23 },  // 秋分の日（変動あり）
+                { month: 10, day: 13 }, // スポーツの日（第2月曜日）
+                { month: 11, day: 3 },  // 文化の日
+                { month: 11, day: 23 }, // 勤労感謝の日
+            ];
+
+            const yearSpecificHolidays = getYearSpecificHolidays(year);
+            return [...baseHolidays, ...yearSpecificHolidays];
+        }
+
+        // 年別の特定祝日を取得
+        function getYearSpecificHolidays(year) {
+            const holidays = [];
+            
+            // 成人の日（第2月曜日）
+            const adultDay = getSecondMonday(year, 1);
+            if (adultDay) {
+                holidays.push({ month: 1, day: adultDay });
+            }
+            
+            // 海の日（第3月曜日）
+            const marineDay = getThirdMonday(year, 7);
+            if (marineDay) {
+                holidays.push({ month: 7, day: marineDay });
+            }
+            
+            // 敬老の日（第3月曜日）
+            const respectDay = getThirdMonday(year, 9);
+            if (respectDay) {
+                holidays.push({ month: 9, day: respectDay });
+            }
+            
+            // スポーツの日（第2月曜日）
+            const sportsDay = getSecondMonday(year, 10);
+            if (sportsDay) {
+                holidays.push({ month: 10, day: sportsDay });
+            }
+            
+            // 春分の日（年によって変動）
+            const springEquinox = getSpringEquinox(year);
+            if (springEquinox) {
+                holidays.push({ month: 3, day: springEquinox });
+            }
+            
+            // 秋分の日（年によって変動）
+            const autumnEquinox = getAutumnEquinox(year);
+            if (autumnEquinox) {
+                holidays.push({ month: 9, day: autumnEquinox });
+            }
+            
+            // 振替休日と国民の休日
+            const substituteHolidays = getSubstituteHolidays(year);
+            holidays.push(...substituteHolidays);
+            
+            return holidays;
+        }
+
+        // 第2月曜日を取得
+        function getSecondMonday(year, month) {
+            const firstDay = new Date(year, month - 1, 1);
+            const firstWeekday = firstDay.getDay();
+            const daysToAdd = (1 - firstWeekday + 7) % 7 + 7; // 第2月曜日
+            return 1 + daysToAdd;
+        }
+
+        // 第3月曜日を取得
+        function getThirdMonday(year, month) {
+            const firstDay = new Date(year, month - 1, 1);
+            const firstWeekday = firstDay.getDay();
+            const daysToAdd = (1 - firstWeekday + 7) % 7 + 14; // 第3月曜日
+            return 1 + daysToAdd;
+        }
+
+        // 春分の日を取得（簡易計算）
+        function getSpringEquinox(year) {
+            // 簡易計算（実際の春分日とは若干異なる場合があります）
+            const springEquinoxDates = {
+                2025: 21, 2026: 20, 2027: 21, 2028: 20, 2029: 20, 2030: 21
+            };
+            return springEquinoxDates[year] || 21;
+        }
+
+        // 秋分の日を取得（簡易計算）
+        function getAutumnEquinox(year) {
+            // 簡易計算（実際の秋分日とは若干異なる場合があります）
+            const autumnEquinoxDates = {
+                2025: 23, 2026: 23, 2027: 23, 2028: 22, 2029: 23, 2030: 23
+            };
+            return autumnEquinoxDates[year] || 23;
+        }
+
+        // 振替休日と国民の休日を取得
+        function getSubstituteHolidays(year) {
+            const holidays = [];
+            
+            // 主要な祝日の振替休日を計算
+            const majorHolidays = [
+                { month: 1, day: 1 },   // 元日
+                { month: 5, day: 3 },   // 憲法記念日
+                { month: 5, day: 4 },   // みどりの日
+                { month: 5, day: 5 },   // こどもの日
+                { month: 11, day: 3 },  // 文化の日
+                { month: 11, day: 23 }, // 勤労感謝の日
+            ];
+            
+            majorHolidays.forEach(holiday => {
+                const date = new Date(year, holiday.month - 1, holiday.day);
+                const weekday = date.getDay();
+                
+                // 日曜日の場合は翌月曜日が振替休日
+                if (weekday === 0) {
+                    const substituteDate = new Date(year, holiday.month - 1, holiday.day + 1);
+                    holidays.push({ 
+                        month: substituteDate.getMonth() + 1, 
+                        day: substituteDate.getDate() 
+                    });
+                }
+            });
+            
+            // 国民の休日（憲法記念日とみどりの日の間）
+            const constitutionDay = new Date(year, 4, 3); // 5月3日
+            const greenDay = new Date(year, 4, 5); // 5月5日
+            const betweenDay = new Date(year, 4, 4); // 5月4日
+            
+            if (constitutionDay.getDay() === 2 && greenDay.getDay() === 0) { // 火曜日と日曜日
+                holidays.push({ month: 5, day: 4 });
+            }
+            
+            return holidays;
+        }
+
+        // 調理場HTML用データ作成
+        function createCookHTMLData() {
+            const employees = [];
+            const dates = new Set();
+            const schedule = [];
+            
+            // 従業員データからID-氏名マッピングを作成
+            const cookEmployeeMapping = {};
+            
+            if (cookData && cookData.employees) {
+                cookData.employees.forEach(emp => {
+                    cookEmployeeMapping[emp.id] = emp.name;
+                    employees.push({
+                        id: emp.id,
+                        name: emp.name,
+                        department: '調理場'
+                    });
+                });
+            }
+            
+            // シフトデータからID-シフト名マッピングを作成
+            const cookShiftMapping = {};
+            
+            if (cookData && cookData.shifts) {
+                cookData.shifts.forEach(shift => {
+                    cookShiftMapping[shift.id] = shift.name;
+                });
+            }
+            
+            // 調理場データ
+            if (cookData && cookData.scheduleData) {
+                Object.keys(cookData.scheduleData).forEach(key => {
+                    const shiftId = cookData.scheduleData[key];
+                    // キーから従業員IDと日付を抽出
+                    const keyParts = key.split('-');
+                    if (keyParts.length >= 2) {
+                        const lastTwo = keyParts.slice(-2);
+                        const monthDayPattern = /^\d{2}-\d{2}$/;
+                        
+                        let employeeId, date;
+                        if (lastTwo.join('-').match(monthDayPattern)) {
+                            employeeId = keyParts.slice(0, -2).join('-');
+                            date = lastTwo.join('-');
+                        } else {
+                            employeeId = keyParts[0];
+                            date = keyParts.slice(1).join('-');
+                        }
+                        
+                        dates.add(date);
+                        
+                        if (shiftId && shiftId.trim() !== '') {
+                            const shiftName = cookShiftMapping[shiftId] || shiftId;
+                            schedule.push({
+                                employeeId: employeeId,
+                                date: date,
+                                shiftName: shiftName,
+                                department: '調理場'
+                            });
+                        }
+                    }
+                });
+            }
+            
+            return {
+                employees: employees,
+                dates: Array.from(dates).sort(),
+                schedule: schedule
+            };
+        }
+
+        // 栄養士HTML用データ作成
+        function createNutritionHTMLData() {
+            const employees = [];
+            const dates = new Set();
+            const schedule = [];
+            
+            // 従業員データからID-氏名マッピングを作成
+            const nutritionEmployeeMapping = {};
+            
+            if (nutritionData && nutritionData.employees) {
+                nutritionData.employees.forEach(emp => {
+                    nutritionEmployeeMapping[emp.id] = emp.name;
+                    employees.push({
+                        id: emp.id,
+                        name: emp.name,
+                        department: '栄養士'
+                    });
+                });
+            }
+            
+            // シフトデータからID-シフト名マッピングを作成
+            const nutritionShiftMapping = {};
+            
+            if (nutritionData && nutritionData.shifts) {
+                nutritionData.shifts.forEach(shift => {
+                    nutritionShiftMapping[shift.id] = shift.name;
+                });
+            }
+            
+            // 栄養士データ
+            if (nutritionData && nutritionData.scheduleData) {
+                Object.keys(nutritionData.scheduleData).forEach(key => {
+                    const shiftId = nutritionData.scheduleData[key];
+                    // キーから従業員IDと日付を抽出
+                    const keyParts = key.split('-');
+                    if (keyParts.length >= 2) {
+                        const lastTwo = keyParts.slice(-2);
+                        const monthDayPattern = /^\d{2}-\d{2}$/;
+                        
+                        let employeeId, date;
+                        if (lastTwo.join('-').match(monthDayPattern)) {
+                            employeeId = keyParts.slice(0, -2).join('-');
+                            date = lastTwo.join('-');
+                        } else {
+                            employeeId = keyParts[0];
+                            date = keyParts.slice(1).join('-');
+                        }
+                        
+                        dates.add(date);
+                        
+                        if (shiftId && shiftId.trim() !== '') {
+                            const shiftName = nutritionShiftMapping[shiftId] || shiftId;
+                            schedule.push({
+                                employeeId: employeeId,
+                                date: date,
+                                shiftName: shiftName,
+                                department: '栄養士'
+                            });
+                        }
+                    }
+                });
+            }
+            
+            return {
+                employees: employees,
+                dates: Array.from(dates).sort(),
+                schedule: schedule
+            };
+        }
+
+        // HTML用統合データ作成
+        function createHTMLIntegratedData() {
+            const employees = [];
+            const dates = new Set();
+            const schedule = [];
+            
+            // 従業員データからID-氏名マッピングを作成
+            const cookEmployeeMapping = {};
+            const nutritionEmployeeMapping = {};
+            
+            if (cookData && cookData.employees) {
+                cookData.employees.forEach(emp => {
+                    cookEmployeeMapping[emp.id] = emp.name;
+                    employees.push({
+                        id: emp.id,
+                        name: emp.name,
+                        department: '調理場'
+                    });
+                });
+            }
+            
+            if (nutritionData && nutritionData.employees) {
+                nutritionData.employees.forEach(emp => {
+                    nutritionEmployeeMapping[emp.id] = emp.name;
+                    employees.push({
+                        id: emp.id,
+                        name: emp.name,
+                        department: '栄養士'
+                    });
+                });
+            }
+            
+            // シフトデータからID-シフト名マッピングを作成
+            const cookShiftMapping = {};
+            const nutritionShiftMapping = {};
+            
+            if (cookData && cookData.shifts) {
+                cookData.shifts.forEach(shift => {
+                    cookShiftMapping[shift.id] = shift.name;
+                });
+            }
+            
+            if (nutritionData && nutritionData.shifts) {
+                nutritionData.shifts.forEach(shift => {
+                    nutritionShiftMapping[shift.id] = shift.name;
+                });
+            }
+            
+            // 調理場データ
+            if (cookData && cookData.scheduleData) {
+                Object.keys(cookData.scheduleData).forEach(key => {
+                    const shiftId = cookData.scheduleData[key];
+                    // キーから従業員IDと日付を抽出
+                    const keyParts = key.split('-');
+                    if (keyParts.length >= 2) {
+                        const lastTwo = keyParts.slice(-2);
+                        const monthDayPattern = /^\d{2}-\d{2}$/;
+                        
+                        let employeeId, date;
+                        if (lastTwo.join('-').match(monthDayPattern)) {
+                            employeeId = keyParts.slice(0, -2).join('-');
+                            date = lastTwo.join('-');
+                        } else {
+                            employeeId = keyParts[0];
+                            date = keyParts.slice(1).join('-');
+                        }
+                        
+                        dates.add(date);
+                        
+                        if (shiftId && shiftId.trim() !== '') {
+                            const shiftName = cookShiftMapping[shiftId] || shiftId;
+                            schedule.push({
+                                employeeId: employeeId,
+                                date: date,
+                                shiftName: shiftName,
+                                department: '調理場'
+                            });
+                        }
+                    }
+                });
+            }
+            
+            // 栄養士データ
+            if (nutritionData && nutritionData.scheduleData) {
+                Object.keys(nutritionData.scheduleData).forEach(key => {
+                    const shiftId = nutritionData.scheduleData[key];
+                    // キーから従業員IDと日付を抽出
+                    const keyParts = key.split('-');
+                    if (keyParts.length >= 2) {
+                        const lastTwo = keyParts.slice(-2);
+                        const monthDayPattern = /^\d{2}-\d{2}$/;
+                        
+                        let employeeId, date;
+                        if (lastTwo.join('-').match(monthDayPattern)) {
+                            employeeId = keyParts.slice(0, -2).join('-');
+                            date = lastTwo.join('-');
+                        } else {
+                            employeeId = keyParts[0];
+                            date = keyParts.slice(1).join('-');
+                        }
+                        
+                        dates.add(date);
+                        
+                        if (shiftId && shiftId.trim() !== '') {
+                            const shiftName = nutritionShiftMapping[shiftId] || shiftId;
+                            schedule.push({
+                                employeeId: employeeId,
+                                date: date,
+                                shiftName: shiftName,
+                                department: '栄養士'
+                            });
+                        }
+                    }
+                });
+            }
+            
+            return {
+                employees: employees,
+                dates: Array.from(dates).sort(),
+                schedule: schedule
+            };
+        }
+
+        // 統合データ作成
+        function createIntegratedData() {
+            const integratedData = [];
+            
+            // 従業員データからID-氏名マッピングとemployeeIdマッピングを作成
+            const cookEmployeeMapping = {};
+            const nutritionEmployeeMapping = {};
+            const cookEmployeeIdMapping = {};
+            const nutritionEmployeeIdMapping = {};
+            
+            if (cookData && cookData.employees) {
+                cookData.employees.forEach(emp => {
+                    cookEmployeeMapping[emp.id] = emp.name;
+                    cookEmployeeIdMapping[emp.id] = emp.employeeId;
+                });
+            }
+            
+            if (nutritionData && nutritionData.employees) {
+                nutritionData.employees.forEach(emp => {
+                    nutritionEmployeeMapping[emp.id] = emp.name;
+                    nutritionEmployeeIdMapping[emp.id] = emp.employeeId;
+                });
+            }
+            
+            // シフトデータからID-シフト名マッピングを作成
+            const cookShiftMapping = {};
+            const nutritionShiftMapping = {};
+            
+            if (cookData && cookData.shifts) {
+                cookData.shifts.forEach(shift => {
+                    cookShiftMapping[shift.id] = shift.name;
+                });
+            }
+            
+            if (nutritionData && nutritionData.shifts) {
+                nutritionData.shifts.forEach(shift => {
+                    nutritionShiftMapping[shift.id] = shift.name;
+                });
+            }
+            
+            // 調理場データ
+            if (cookData && cookData.scheduleData) {
+                Object.keys(cookData.scheduleData).forEach(key => {
+                    const shiftId = cookData.scheduleData[key];
+                    // 未入力の場合は除外（CSV出力時）
+                    if (shiftId && shiftId.trim() !== '') {
+                        // キーから従業員IDと日付を抽出（修正版）
+                        const keyParts = key.split('-');
+                        if (keyParts.length >= 2) {
+                            // 最後の2つが月-日の形式かチェック
+                            const lastTwo = keyParts.slice(-2);
+                            const monthDayPattern = /^\d{2}-\d{2}$/;
+                            
+                            let employeeId, date;
+                            if (lastTwo.join('-').match(monthDayPattern)) {
+                                // 最後の2つが月-日の場合
+                                employeeId = keyParts.slice(0, -2).join('-');
+                                date = lastTwo.join('-');
+                            } else {
+                                // 従業員IDが短い場合（例: "26-07-01"）
+                                employeeId = keyParts[0];
+                                date = keyParts.slice(1).join('-');
+                            }
+                            
+                            const employeeName = cookEmployeeMapping[employeeId] || employeeId;
+                            const employeeNumber = convertEmployeeIdToString(cookEmployeeIdMapping[employeeId] || employeeId);
+                            // シフトIDをシフト名に変換
+                            const shiftName = cookShiftMapping[shiftId] || shiftId;
+                            // 日付を2025/7/9形式に変換
+                            const formattedDate = formatDateForCSV(date);
+                            integratedData.push([employeeNumber, employeeName, formattedDate, '栄養', shiftName]);
+                        } else {
+                            integratedData.push([key, key, '', '栄養', shiftId]);
+                        }
+                    }
+                });
+            }
+            
+            // 栄養士データ
+            if (nutritionData && nutritionData.scheduleData) {
+                Object.keys(nutritionData.scheduleData).forEach(key => {
+                    const shiftId = nutritionData.scheduleData[key];
+                    // 未入力の場合は除外（CSV出力時）
+                    if (shiftId && shiftId.trim() !== '') {
+                        // キーから従業員IDと日付を抽出（修正版）
+                        const keyParts = key.split('-');
+                        if (keyParts.length >= 2) {
+                            // 最後の2つが月-日の形式かチェック
+                            const lastTwo = keyParts.slice(-2);
+                            const monthDayPattern = /^\d{2}-\d{2}$/;
+                            
+                            let employeeId, date;
+                            if (lastTwo.join('-').match(monthDayPattern)) {
+                                // 最後の2つが月-日の場合
+                                employeeId = keyParts.slice(0, -2).join('-');
+                                date = lastTwo.join('-');
+                            } else {
+                                // 従業員IDが短い場合（例: "26-07-01"）
+                                employeeId = keyParts[0];
+                                date = keyParts.slice(1).join('-');
+                            }
+                            
+                            const employeeName = nutritionEmployeeMapping[employeeId] || employeeId;
+                            const employeeNumber = convertEmployeeIdToString(nutritionEmployeeIdMapping[employeeId] || employeeId);
+                            // シフトIDをシフト名に変換
+                            const shiftName = nutritionShiftMapping[shiftId] || shiftId;
+                            // 日付を2025/7/9形式に変換
+                            const formattedDate = formatDateForCSV(date);
+                            integratedData.push([employeeNumber, employeeName, formattedDate, '栄養', shiftName]);
+                        } else {
+                            integratedData.push([key, key, '', '栄養', shiftId]);
+                        }
+                    }
+                });
+            }
+            
+            return integratedData;
+        }
+
+        // employeeIdを数値に変換する関数（CSV用）
+        function convertEmployeeIdToNumber(employeeId) {
+            // 文字列のemployeeIdを数値に変換（先頭の0を保持）
+            const num = parseInt(employeeId, 10);
+            return isNaN(num) ? employeeId : num;
+        }
+
+        // employeeIdを文字列として保持する関数（CSV用）
+        function convertEmployeeIdToString(employeeId) {
+            // 文字列のemployeeIdをそのまま保持（先頭の0を保持）
+            return employeeId;
+        }
+
+        // 日付を2025/7/9形式に変換
+        function formatDateForCSV(dateString) {
+            // dateStringは "07-01" のような形式
+            const parts = dateString.split('-');
+            if (parts.length === 2) {
+                const month = parseInt(parts[0]);
+                const day = parseInt(parts[1]);
+                return `2025/${month}/${day}`;
+            }
+            return dateString;
+        }
+
+        // CSV変換
+        function convertToCSV(data) {
+            return data.map(row => 
+                row.map(cell => 
+                    typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell
+                ).join(',')
+            ).join('\n');
+        }
+
+
+
+        // ステータスメッセージ表示
+        function showStatus(type, message) {
+            const statusContainer = document.getElementById('status-messages');
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+            
+            statusContainer.appendChild(statusDiv);
+            
+            // 5秒後に自動削除
+            setTimeout(() => {
+                if (statusDiv.parentNode) {
+                    statusDiv.parentNode.removeChild(statusDiv);
+                }
+            }, 5000);
+            
+            console.log(`${type.toUpperCase()}: ${message}`);
+        }
+
+        // データクリア
+        function clearAllData() {
+            cookData = null;
+            nutritionData = null;
+            missingShifts = [];
+            
+            // ファイル入力をリセット
+            document.getElementById('cook-file').value = '';
+            document.getElementById('nutrition-file').value = '';
+            document.getElementById('cook-file-info').textContent = '';
+            document.getElementById('nutrition-file-info').textContent = '';
+            
+            // セクションを非表示
+            document.getElementById('data-preview-section').style.display = 'none';
+            document.getElementById('export-section').style.display = 'none';
+            
+            // ボタンを無効化
+            document.getElementById('excel-export-btn').disabled = true;
+            document.getElementById('csv-export-btn').disabled = true;
+            
+            // ステータスメッセージをクリア
+            document.getElementById('status-messages').innerHTML = '';
+            
+            showStatus('info', 'すべてのデータをクリアしました。');
+        }
+
+        // ページ更新
+        function refreshPage() {
+            location.reload();
+        }
+
+        // 現在時刻を更新
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('current-time').textContent = timeString;
+        }
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 時刻更新を開始
+            updateTime();
+            setInterval(updateTime, 1000);
+            
+            showStatus('info', 'システムが起動しました。backupフォルダ内のJSONファイルを選択してください。');
+        });
+    </script>
+</body>
+</html> 

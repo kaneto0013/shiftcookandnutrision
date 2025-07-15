@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>統合シフト管理システム</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tab-button.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .tab-button {
+            background-color: #f3f4f6;
+            color: #374151;
+        }
+        .tab-button:hover {
+            background-color: #e5e7eb;
+        }
+        iframe {
+            border: none;
+            width: 100%;
+            height: calc(100vh - 120px);
+            min-height: 800px;
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen bg-gray-50">
+        <!-- ヘッダー -->
+        <div class="bg-white shadow-sm border-b">
+            <div class="max-w-full mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <h1 class="text-2xl font-bold text-gray-900">統合シフト管理システム</h1>
+                    <div class="flex items-center gap-4">
+                        <div class="text-sm text-gray-600">
+                            <span id="current-time"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- タブナビゲーション -->
+        <div class="max-w-full mx-auto px-4 mb-4">
+            <div class="flex gap-4">
+                <button
+                    id="nutrition-tab"
+                    class="tab-button flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors"
+                    onclick="switchTab('nutrition')"
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="m22 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="m16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    栄養士シフト管理
+                </button>
+                <button
+                    id="cook-tab"
+                    class="tab-button flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors"
+                    onclick="switchTab('cook')"
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M8 2v4"></path>
+                        <path d="M16 2v4"></path>
+                        <rect x="3" y="6" width="18" height="14" rx="2" ry="2"></rect>
+                        <path d="M7 12h10"></path>
+                    </svg>
+                    調理場シフト管理
+                </button>
+                <button
+                    id="integration-tab"
+                    class="tab-button flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors"
+                    onclick="switchTab('integration')"
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                        <polyline points="14,2 14,8 20,8"></polyline>
+                        <path d="M16 13H8"></path>
+                        <path d="M16 17H8"></path>
+                        <path d="M10 9H8"></path>
+                    </svg>
+                    データ統合・エクスポート
+                </button>
+            </div>
+        </div>
+
+        <!-- コンテンツエリア -->
+        <div class="max-w-full mx-auto px-4 pb-2">
+            <!-- 栄養士シフト管理 -->
+            <div id="nutrition-content" class="tab-content active">
+                <div class="bg-white rounded-lg shadow">
+                    <iframe src="nutrition.html" title="栄養士シフト管理"></iframe>
+                </div>
+            </div>
+
+            <!-- 調理場シフト管理 -->
+            <div id="cook-content" class="tab-content">
+                <div class="bg-white rounded-lg shadow">
+                    <iframe src="cook.html" title="調理場シフト管理"></iframe>
+                </div>
+            </div>
+
+            <!-- データ統合・エクスポート -->
+            <div id="integration-content" class="tab-content">
+                <div class="bg-white rounded-lg shadow">
+                    <iframe src="file-integration-system2.html" title="データ統合・エクスポート"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- フッター -->
+        <div class="mt-4 p-3 bg-gray-50 border-t">
+            <div class="max-w-full mx-auto">
+                <div class="flex justify-between items-center">
+                    <div class="text-sm text-gray-600">
+                        <p>統合シフト管理システム v1.0</p>
+                        <p>調理場・栄養士のシフト管理を統合</p>
+                    </div>
+                    <div class="flex gap-4">
+                        <button 
+                            onclick="refreshCurrentTab()" 
+                            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
+                        >
+                            現在のタブを更新
+                        </button>
+                        <button 
+                            onclick="refreshAllTabs()" 
+                            class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm"
+                        >
+                            すべて更新
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 現在のタブを管理
+        let currentTab = 'nutrition';
+
+        // タブ切り替え関数
+        function switchTab(tabName) {
+            // すべてのタブコンテンツを非表示
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // すべてのタブボタンからアクティブクラスを削除
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // 選択されたタブを表示
+            document.getElementById(tabName + '-content').classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+
+            currentTab = tabName;
+        }
+
+        // 現在のタブを更新
+        function refreshCurrentTab() {
+            const iframe = document.querySelector(`#${currentTab}-content iframe`);
+            if (iframe) {
+                iframe.src = iframe.src;
+            }
+        }
+
+        // すべてのタブを更新
+        function refreshAllTabs() {
+            const iframes = document.querySelectorAll('iframe');
+            iframes.forEach(iframe => {
+                iframe.src = iframe.src;
+            });
+        }
+
+        // 現在時刻を更新
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('current-time').textContent = timeString;
+        }
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初期タブを設定
+            switchTab('nutrition');
+            
+            // 時刻更新を開始
+            updateTime();
+            setInterval(updateTime, 1000);
+
+            // iframeの読み込み完了時の処理
+            document.querySelectorAll('iframe').forEach(iframe => {
+                iframe.addEventListener('load', function() {
+                    console.log('iframe loaded:', iframe.src);
+                    // iframeが読み込まれた後、少し待ってからボタンが利用可能になるようにする
+                    setTimeout(() => {
+                        try {
+                            const buttons = iframe.contentDocument.querySelectorAll('button');
+                            console.log(`iframe ${iframe.src} で ${buttons.length} 個のボタンが見つかりました`);
+                        } catch (error) {
+                            console.log('iframe内のボタン確認に失敗:', error);
+                        }
+                    }, 2000);
+                });
+            });
+        });
+
+        // キーボードショートカット
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case '1':
+                        e.preventDefault();
+                        switchTab('nutrition');
+                        break;
+                    case '2':
+                        e.preventDefault();
+                        switchTab('cook');
+                        break;
+                    case '3':
+                        e.preventDefault();
+                        switchTab('integration');
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        refreshCurrentTab();
+                        break;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
